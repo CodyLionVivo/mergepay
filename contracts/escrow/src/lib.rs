@@ -13,6 +13,8 @@ pub enum BountyStatus {
     Open,
     Assigned,
     Paid,
+    Cancelled,
+    Refunded,
 }
 
 #[contracttype]
@@ -44,6 +46,7 @@ pub enum Error {
     BountyNotFound = 3,
     InvalidStatus = 4,
     DeadlinePassed = 5,
+    DeadlineNotReached = 6,
 }
 
 #[contract]
@@ -160,6 +163,85 @@ impl MergePayEscrow {
 
         bounty.evidence_hash = Some(evidence_hash);
         bounty.status = BountyStatus::Paid;
+
+        env.storage().persistent().set(&key, &bounty);
+
+        Ok(())
+    }
+
+    /// Devuelve la recompensa al cliente mientras el bounty sigue `Open`.
+    /// Solo es valido antes del deadline: pasado ese punto la salida es
+    /// `refund_expired`.
+    pub fn cancel_open_bounty(env: Env, id: u64) -> Result<(), Error> {
+        let key = DataKey::Bounty(id);
+
+        let mut bounty: Bounty = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .ok_or(Error::BountyNotFound)?;
+
+        bounty.client.require_auth();
+
+        if bounty.status != BountyStatus::Open {
+            return Err(Error::InvalidStatus);
+        }
+
+        if env.ledger().timestamp() > bounty.deadline {
+            return Err(Error::DeadlinePassed);
+        }
+
+        let token_address: Address = env.storage().instance().get(&DataKey::Token).unwrap();
+
+        let token_client = token::Client::new(&env, &token_address);
+
+        token_client.transfer(
+            &env.current_contract_address(),
+            &bounty.client,
+            &bounty.amount,
+        );
+
+        bounty.status = BountyStatus::Cancelled;
+
+        env.storage().persistent().set(&key, &bounty);
+
+        Ok(())
+    }
+
+    /// Libera los fondos de vuelta al cliente cuando el deadline vencio sin
+    /// payout. Acepta `Open` (nadie tomo el trabajo) y `Assigned` (se tomo pero
+    /// el verifier nunca autorizo el pago).
+    pub fn refund_expired(env: Env, id: u64) -> Result<(), Error> {
+        let key = DataKey::Bounty(id);
+
+        let mut bounty: Bounty = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .ok_or(Error::BountyNotFound)?;
+
+        bounty.client.require_auth();
+
+        if bounty.status != BountyStatus::Open && bounty.status != BountyStatus::Assigned {
+            return Err(Error::InvalidStatus);
+        }
+
+        if env.ledger().timestamp() <= bounty.deadline {
+            return Err(Error::DeadlineNotReached);
+        }
+
+        let token_address: Address = env.storage().instance().get(&DataKey::Token).unwrap();
+
+        let token_client = token::Client::new(&env, &token_address);
+
+        token_client.transfer(
+            &env.current_contract_address(),
+            &bounty.client,
+            &bounty.amount,
+        );
+
+        // El developer asignado se conserva como registro historico.
+        bounty.status = BountyStatus::Refunded;
 
         env.storage().persistent().set(&key, &bounty);
 
