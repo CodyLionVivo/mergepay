@@ -13,6 +13,7 @@ import httpx
 
 from app.config import settings
 from app.schemas import (
+    GitHubCheckRun,
     PullRequestFile,
     PullRequestInspection,
     PullRequestRef,
@@ -25,9 +26,10 @@ USER_AGENT = "MergePay"
 
 REQUEST_TIMEOUT_SECONDS = 10.0
 
-# Tope del MVP. Coincide con el maximo de per_page que acepta GitHub, asi que
+# Topes del MVP. Coinciden con el maximo de per_page que acepta GitHub, asi que
 # una sola pagina basta para el caso normal.
 MAX_FILES = 100
+MAX_CHECK_RUNS = 100
 
 # Solo la forma canonica https://github.com/{owner}/{repo}/pull/{number}.
 # Estos valores acaban formando la URL contra api.github.com, de modo que el
@@ -66,6 +68,10 @@ class GitHubUnexpectedStatusError(GitHubError):
 
 class PullRequestTooLargeError(GitHubError):
     """El PR tiene mas archivos de los que soporta el MVP."""
+
+
+class CheckRunsTooLargeError(GitHubError):
+    """El commit tiene mas check runs de los que soporta el MVP."""
 
 
 def parse_pull_request_url(pull_request_url: str) -> PullRequestRef:
@@ -198,6 +204,29 @@ class GitHubClient:
 
         return files
 
+    def list_check_runs(
+        self, ref: PullRequestRef, head_sha: str
+    ) -> list[GitHubCheckRun]:
+        """Check runs del commit indicado, quedandose con el ultimo de cada uno.
+
+        El SHA es el que nos pasan, no uno derivado aqui: el verifier evalua
+        exactamente el commit que inspecciono.
+        """
+        payload = self._get(
+            f"/repos/{ref.owner}/{ref.repo}/commits/{head_sha}/check-runs",
+            params={"filter": "latest", "per_page": MAX_CHECK_RUNS},
+        )
+
+        items = payload.get("check_runs") or []
+        total_count = payload.get("total_count", len(items))
+
+        if total_count > MAX_CHECK_RUNS or len(items) > MAX_CHECK_RUNS:
+            raise CheckRunsTooLargeError(
+                "Pull request exceeds MergePay MVP check run limit"
+            )
+
+        return [_to_check_run(item) for item in items]
+
     def inspect_pull_request(self, pull_request_url: str) -> PullRequestInspection:
         ref = parse_pull_request_url(pull_request_url)
 
@@ -214,4 +243,15 @@ def _to_file(item: dict[str, Any]) -> PullRequestFile:
         additions=item.get("additions"),
         deletions=item.get("deletions"),
         changes=item.get("changes"),
+        previous_filename=item.get("previous_filename"),
+    )
+
+
+def _to_check_run(item: dict[str, Any]) -> GitHubCheckRun:
+    return GitHubCheckRun(
+        name=item.get("name"),
+        status=item.get("status"),
+        conclusion=item.get("conclusion"),
+        head_sha=item.get("head_sha"),
+        html_url=item.get("html_url"),
     )

@@ -1,4 +1,5 @@
 from datetime import datetime
+from enum import StrEnum
 from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
@@ -88,6 +89,10 @@ class PullRequestFile(BaseModel):
     deletions: int
     changes: int
 
+    # Solo lo rellena GitHub cuando status == "renamed". Hace falta para
+    # detectar que un archivo protegido se movio de sitio.
+    previous_filename: str | None = None
+
 
 class PullRequestSummary(PullRequestRef):
     """Metadatos del PR que nos interesan, no el JSON completo de GitHub."""
@@ -105,3 +110,51 @@ class PullRequestSummary(PullRequestRef):
 
 class PullRequestInspection(PullRequestSummary):
     files: list[PullRequestFile]
+
+
+class GitHubCheckRun(BaseModel):
+    name: str
+    status: str
+    conclusion: str | None
+    head_sha: str
+    html_url: str | None
+
+
+# ─────────────────────────────────────────
+# Verificacion determinista de un pull request.
+# ─────────────────────────────────────────
+
+
+class VerificationStatus(StrEnum):
+    PASS = "PASS"
+    FAIL = "FAIL"
+    PENDING = "PENDING"
+
+
+class RequiredCheckResult(BaseModel):
+    name: str
+    # El status del check run, o "missing" si no existe ninguno con ese nombre.
+    status: str
+    conclusion: str | None
+    passed: bool
+
+
+class PullRequestVerificationResult(BaseModel):
+    status: VerificationStatus
+    eligible_for_payout: bool
+
+    repository_valid: bool
+    base_branch_valid: bool
+    base_sha_valid: bool
+    developer_valid: bool
+    pr_open: bool
+    pr_not_draft: bool
+    protected_files_valid: bool
+
+    protected_files_modified: list[str]
+
+    checks: list[RequiredCheckResult]
+
+    reasons: list[str]
+
+    head_sha: str

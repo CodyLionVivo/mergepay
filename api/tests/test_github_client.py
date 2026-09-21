@@ -7,7 +7,9 @@ import pytest
 from app.config import settings
 from app.github_client import (
     GITHUB_API_VERSION,
+    MAX_CHECK_RUNS,
     MAX_FILES,
+    CheckRunsTooLargeError,
     GitHubClient,
     GitHubForbiddenError,
     GitHubUnauthorizedError,
@@ -250,7 +252,35 @@ def test_list_pull_request_files_maps_github_json() -> None:
         "additions",
         "deletions",
         "changes",
+        "previous_filename",
     }
+
+    # Sin rename no hay ruta anterior.
+    assert all(file.previous_filename is None for file in files)
+
+
+def test_renamed_file_maps_previous_filename() -> None:
+    renamed = {
+        "filename": "tests/regression/test_login.py",
+        "status": "renamed",
+        "additions": 0,
+        "deletions": 0,
+        "changes": 0,
+        "previous_filename": "tests/test_login.py",
+    }
+
+    with make_client(make_handler(first_page=[renamed, *FILES_PAYLOAD])) as client:
+        files = client.list_pull_request_files(
+            parse_pull_request_url(PULL_REQUEST_URL)
+        )
+
+    assert files[0].status == "renamed"
+    assert files[0].filename == "tests/regression/test_login.py"
+    assert files[0].previous_filename == "tests/test_login.py"
+
+    # El resto sigue sin ruta anterior.
+    assert files[1].previous_filename is None
+    assert files[2].previous_filename is None
 
 
 # ─────────────────────────────────────────
@@ -359,6 +389,146 @@ def test_second_page_is_not_requested_when_first_is_not_full() -> None:
         client.list_pull_request_files(parse_pull_request_url(PULL_REQUEST_URL))
 
     assert requested_pages == [None]
+
+
+# ─────────────────────────────────────────
+# Check runs.
+# ─────────────────────────────────────────
+
+CHECK_RUNS_PATH = f"/repos/{OWNER}/{REPO}/commits/{HEAD_SHA}/check-runs"
+
+CHECK_RUNS_PAYLOAD: list[dict[str, Any]] = [
+    {
+        "name": "build",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": HEAD_SHA,
+        "html_url": "https://github.com/acme/demo/runs/1",
+        "id": 1,
+        "output": {"title": "campo que no debe aparecer"},
+    },
+    {
+        "name": "acceptance-tests",
+        "status": "in_progress",
+        "conclusion": None,
+        "head_sha": HEAD_SHA,
+        "html_url": None,
+        "started_at": "2026-03-10T00:00:00Z",
+    },
+]
+
+
+def check_run_item(index: int) -> dict[str, Any]:
+    return {
+        "name": f"check-{index}",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": HEAD_SHA,
+        "html_url": None,
+    }
+
+
+def check_runs_handler(
+    check_runs: list[dict[str, Any]],
+    total_count: int | None = None,
+    response: httpx.Response | None = None,
+) -> Handler:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if response is not None:
+            return response
+
+        return httpx.Response(
+            200,
+            json={
+                "total_count": len(check_runs) if total_count is None else total_count,
+                "check_runs": check_runs,
+            },
+        )
+
+    return handler
+
+
+def test_list_check_runs_maps_github_json() -> None:
+    with make_client(check_runs_handler(CHECK_RUNS_PAYLOAD)) as client:
+        runs = client.list_check_runs(
+            parse_pull_request_url(PULL_REQUEST_URL), HEAD_SHA
+        )
+
+    assert [run.name for run in runs] == ["build", "acceptance-tests"]
+    assert [run.status for run in runs] == ["completed", "in_progress"]
+    assert [run.conclusion for run in runs] == ["success", None]
+    assert all(run.head_sha == HEAD_SHA for run in runs)
+    assert runs[0].html_url == "https://github.com/acme/demo/runs/1"
+    assert runs[1].html_url is None
+
+    # `id`, `output` y demas se descartan.
+    assert set(runs[0].model_dump()) == {
+        "name",
+        "status",
+        "conclusion",
+        "head_sha",
+        "html_url",
+    }
+
+
+def test_list_check_runs_uses_the_supplied_head_sha() -> None:
+    seen: dict[str, Any] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["path"] = request.url.path
+        seen["params"] = dict(request.url.params)
+
+        return httpx.Response(200, json={"total_count": 0, "check_runs": []})
+
+    other_sha = "f" * 40
+
+    with make_client(handler) as client:
+        client.list_check_runs(parse_pull_request_url(PULL_REQUEST_URL), other_sha)
+
+    assert seen["path"] == f"/repos/{OWNER}/{REPO}/commits/{other_sha}/check-runs"
+    assert seen["params"] == {"filter": "latest", "per_page": str(MAX_CHECK_RUNS)}
+
+
+def test_exactly_100_check_runs_is_valid() -> None:
+    full_page = [check_run_item(index) for index in range(MAX_CHECK_RUNS)]
+
+    with make_client(check_runs_handler(full_page)) as client:
+        runs = client.list_check_runs(
+            parse_pull_request_url(PULL_REQUEST_URL), HEAD_SHA
+        )
+
+    assert len(runs) == MAX_CHECK_RUNS
+    assert runs[-1].name == f"check-{MAX_CHECK_RUNS - 1}"
+
+
+def test_more_than_100_check_runs_raises_limit_error() -> None:
+    full_page = [check_run_item(index) for index in range(MAX_CHECK_RUNS)]
+    handler = check_runs_handler(full_page, total_count=MAX_CHECK_RUNS + 1)
+
+    with make_client(handler) as client:
+        with pytest.raises(CheckRunsTooLargeError) as raised:
+            client.list_check_runs(parse_pull_request_url(PULL_REQUEST_URL), HEAD_SHA)
+
+    assert str(raised.value) == "Pull request exceeds MergePay MVP check run limit"
+
+
+@pytest.mark.parametrize(
+    ("status_code", "expected_error"),
+    [
+        (404, PullRequestNotFoundError),
+        (401, GitHubUnauthorizedError),
+        (403, GitHubForbiddenError),
+        (500, GitHubUnexpectedStatusError),
+    ],
+)
+def test_check_runs_http_errors_reuse_existing_exceptions(
+    status_code: int, expected_error: type[Exception]
+) -> None:
+    handler = check_runs_handler([], response=httpx.Response(status_code, json={}))
+
+    with make_client(handler) as client:
+        with pytest.raises(expected_error):
+            client.list_check_runs(parse_pull_request_url(PULL_REQUEST_URL), HEAD_SHA)
 
 
 # ─────────────────────────────────────────
