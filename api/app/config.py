@@ -13,5 +13,13 @@ class Settings(BaseSettings):
     # anonimo de GitHub. Nunca se registra ni se serializa.
     github_token: str | None = None
 
+    stellar_rpc_url: str = "https://soroban-testnet.stellar.org"
+    stellar_network_passphrase: str = "Test SDF Network ; September 2015"
+
+    # Opcionales a proposito: la app y los tests arrancan sin .env. Solo se
+    # exigen al construir un StellarClient desde settings.
+    stellar_contract_id: str | None = None
+    stellar_verifier_secret: str | None = None
+
 
 settings = Settings()

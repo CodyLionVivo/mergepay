@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app import verification_service
 from app.database import get_db
 from app.github_client import GitHubClient
+from app.hashing import compute_criteria_hash
 from app.models import Bounty, BountyStatus, Criterion, Submission
 from app.schemas import (
     BountyCreate,
@@ -44,6 +45,7 @@ def create_bounty(payload: BountyCreate, db: Session = Depends(get_db)) -> Bount
         base_branch=payload.base_branch,
         amount_stroops=payload.amount_stroops,
         deadline_unix=payload.deadline_unix,
+        criteria_hash=compute_criteria_hash(payload.criteria),
         status=BountyStatus.DRAFT,
         criteria=[
             Criterion(
