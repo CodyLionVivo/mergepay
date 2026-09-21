@@ -9,5 +9,9 @@ class Settings(BaseSettings):
     app_name: str = "MergePay API"
     database_url: str = "sqlite:///./mergepay.db"
 
+    # Opcional: sin token se consultan repositorios publicos con el rate limit
+    # anonimo de GitHub. Nunca se registra ni se serializa.
+    github_token: str | None = None
+
 
 settings = Settings()

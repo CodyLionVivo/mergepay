@@ -66,3 +66,42 @@ class BountyResponse(BaseModel):
     updated_at: datetime
 
     criteria: list[CriterionResponse]
+
+
+# ─────────────────────────────────────────
+# GitHub: lectura de pull requests.
+# ─────────────────────────────────────────
+
+
+class PullRequestRef(BaseModel):
+    """Coordenadas de un PR, extraidas de su URL."""
+
+    owner: str
+    repo: str
+    pull_number: int
+
+
+class PullRequestFile(BaseModel):
+    filename: str
+    status: str
+    additions: int
+    deletions: int
+    changes: int
+
+
+class PullRequestSummary(PullRequestRef):
+    """Metadatos del PR que nos interesan, no el JSON completo de GitHub."""
+
+    html_url: str
+    state: str
+    draft: bool
+    author: str | None
+    base_ref: str
+    base_sha: str
+    head_ref: str
+    head_sha: str
+    head_repo_full_name: str | None
+
+
+class PullRequestInspection(PullRequestSummary):
+    files: list[PullRequestFile]

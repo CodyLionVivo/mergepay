@@ -1,0 +1,217 @@
+"""Capa de lectura de pull requests de GitHub.
+
+Solo lee: resuelve la URL de un PR, pide sus metadatos y la lista de archivos
+tocados, y los traduce a los schemas de MergePay. No persiste nada ni decide
+nada sobre el bounty.
+"""
+
+import re
+from types import TracebackType
+from typing import Any, Self
+
+import httpx
+
+from app.config import settings
+from app.schemas import (
+    PullRequestFile,
+    PullRequestInspection,
+    PullRequestRef,
+    PullRequestSummary,
+)
+
+GITHUB_API_URL = "https://api.github.com"
+GITHUB_API_VERSION = "2026-03-10"
+USER_AGENT = "MergePay"
+
+REQUEST_TIMEOUT_SECONDS = 10.0
+
+# Tope del MVP. Coincide con el maximo de per_page que acepta GitHub, asi que
+# una sola pagina basta para el caso normal.
+MAX_FILES = 100
+
+# Solo la forma canonica https://github.com/{owner}/{repo}/pull/{number}.
+# Estos valores acaban formando la URL contra api.github.com, de modo que el
+# patron es deliberadamente estrecho.
+PULL_REQUEST_URL_PATTERN = re.compile(
+    r"^https://github\.com"
+    r"/(?P<owner>[A-Za-z0-9._-]+)"
+    r"/(?P<repo>[A-Za-z0-9._-]+)"
+    r"/pull/(?P<pull_number>[1-9][0-9]*)/?$"
+)
+
+
+class GitHubError(Exception):
+    """Raiz de los errores de esta capa."""
+
+
+class InvalidPullRequestUrlError(GitHubError):
+    """La URL no es la de un pull request de github.com."""
+
+
+class PullRequestNotFoundError(GitHubError):
+    """GitHub respondio 404."""
+
+
+class GitHubUnauthorizedError(GitHubError):
+    """GitHub respondio 401."""
+
+
+class GitHubForbiddenError(GitHubError):
+    """GitHub respondio 403 (permisos o rate limit)."""
+
+
+class GitHubUnexpectedStatusError(GitHubError):
+    """GitHub respondio un codigo de error que no sabemos interpretar."""
+
+
+class PullRequestTooLargeError(GitHubError):
+    """El PR tiene mas archivos de los que soporta el MVP."""
+
+
+def parse_pull_request_url(pull_request_url: str) -> PullRequestRef:
+    """Extrae owner, repo y numero de la URL de un pull request."""
+    match = PULL_REQUEST_URL_PATTERN.match(pull_request_url.strip())
+
+    if match is None:
+        raise InvalidPullRequestUrlError(
+            "Expected a URL of the form "
+            "https://github.com/{owner}/{repo}/pull/{number}"
+        )
+
+    return PullRequestRef(
+        owner=match.group("owner"),
+        repo=match.group("repo"),
+        pull_number=int(match.group("pull_number")),
+    )
+
+
+def build_headers(token: str | None) -> dict[str, str]:
+    """Cabeceras de la API. El token solo viaja en Authorization."""
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": GITHUB_API_VERSION,
+        "User-Agent": USER_AGENT,
+    }
+
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    return headers
+
+
+class GitHubClient:
+    """Cliente de solo lectura sobre la REST API de GitHub."""
+
+    def __init__(
+        self,
+        token: str | None = None,
+        *,
+        transport: httpx.BaseTransport | None = None,
+    ) -> None:
+        self._client = httpx.Client(
+            base_url=GITHUB_API_URL,
+            headers=build_headers(token if token is not None else settings.github_token),
+            timeout=REQUEST_TIMEOUT_SECONDS,
+            transport=transport,
+        )
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        self.close()
+
+    def close(self) -> None:
+        self._client.close()
+
+    def _get(self, path: str, params: dict[str, Any] | None = None) -> Any:
+        """Hace la llamada y devuelve JSON ya decodificado.
+
+        El objeto Response nunca sale de aqui: cada codigo de error se traduce
+        a una excepcion propia. Los mensajes no incluyen el token ni el cuerpo
+        de la respuesta.
+        """
+        response = self._client.get(path, params=params)
+
+        if response.status_code == 404:
+            raise PullRequestNotFoundError(f"GitHub returned 404 for {path}")
+
+        if response.status_code == 401:
+            raise GitHubUnauthorizedError(f"GitHub returned 401 for {path}")
+
+        if response.status_code == 403:
+            raise GitHubForbiddenError(f"GitHub returned 403 for {path}")
+
+        if response.status_code >= 400:
+            raise GitHubUnexpectedStatusError(
+                f"GitHub returned HTTP {response.status_code} for {path}"
+            )
+
+        return response.json()
+
+    def get_pull_request(self, ref: PullRequestRef) -> PullRequestSummary:
+        payload = self._get(f"/repos/{ref.owner}/{ref.repo}/pulls/{ref.pull_number}")
+
+        # `user` y `head.repo` pueden llegar nulos (cuenta borrada, fork
+        # eliminado), por eso se leen con get en vez de indexar.
+        user = payload.get("user") or {}
+        base = payload.get("base") or {}
+        head = payload.get("head") or {}
+        head_repo = head.get("repo") or {}
+
+        return PullRequestSummary(
+            owner=ref.owner,
+            repo=ref.repo,
+            pull_number=ref.pull_number,
+            html_url=payload.get("html_url"),
+            state=payload.get("state"),
+            draft=payload.get("draft"),
+            author=user.get("login"),
+            base_ref=base.get("ref"),
+            base_sha=base.get("sha"),
+            head_ref=head.get("ref"),
+            head_sha=head.get("sha"),
+            head_repo_full_name=head_repo.get("full_name"),
+        )
+
+    def list_pull_request_files(self, ref: PullRequestRef) -> list[PullRequestFile]:
+        path = f"/repos/{ref.owner}/{ref.repo}/pulls/{ref.pull_number}/files"
+
+        files = [
+            _to_file(item) for item in self._get(path, params={"per_page": MAX_FILES})
+        ]
+
+        if len(files) < MAX_FILES:
+            return files
+
+        # La primera pagina vino llena: puede que no haya mas, o puede que el PR
+        # se salga del MVP. Solo la segunda pagina lo aclara.
+        if self._get(path, params={"per_page": MAX_FILES, "page": 2}):
+            raise PullRequestTooLargeError(
+                "Pull request exceeds MergePay MVP file limit"
+            )
+
+        return files
+
+    def inspect_pull_request(self, pull_request_url: str) -> PullRequestInspection:
+        ref = parse_pull_request_url(pull_request_url)
+
+        summary = self.get_pull_request(ref)
+        files = self.list_pull_request_files(ref)
+
+        return PullRequestInspection(**summary.model_dump(), files=files)
+
+
+def _to_file(item: dict[str, Any]) -> PullRequestFile:
+    return PullRequestFile(
+        filename=item.get("filename"),
+        status=item.get("status"),
+        additions=item.get("additions"),
+        deletions=item.get("deletions"),
+        changes=item.get("changes"),
+    )
