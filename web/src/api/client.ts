@@ -100,3 +100,18 @@ export function createBounty(
     signal,
   })
 }
+
+/**
+ * Pide al backend que compruebe on-chain el escrow creado por esta
+ * transaccion. Solo viaja el hash: wallet, monto y status los lee el backend.
+ */
+export function confirmBountyFunding(
+  bountyId: number,
+  transactionHash: string,
+): Promise<Bounty> {
+  return request<Bounty>(`/bounties/${bountyId}/funded`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ transaction_hash: transactionHash }),
+  })
+}

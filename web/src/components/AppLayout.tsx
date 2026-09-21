@@ -1,6 +1,7 @@
 import { GitMerge } from 'lucide-react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
 import { ApiStatus } from './ApiStatus'
+import { WalletButton } from './WalletButton'
 import './AppLayout.css'
 
 const NAV_ITEMS = [
@@ -33,7 +34,10 @@ export function AppLayout() {
             ))}
           </nav>
 
-          <ApiStatus />
+          <div className="app__status">
+            <ApiStatus />
+            <WalletButton />
+          </div>
         </div>
       </header>
 

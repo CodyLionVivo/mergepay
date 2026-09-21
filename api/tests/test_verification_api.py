@@ -7,11 +7,17 @@ from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
+from stellar_sdk import Keypair, StrKey
 
+from app import stellar_client, verification_service
 from app.hashing import compute_evidence_hash
 from app.models import Bounty, BountyStatus, Submission, Verification
 from app.schemas import PullRequestVerificationResult, VerificationStatus
-from app.stellar_client import StellarConfigurationError, StellarTransactionError
+from app.stellar_client import (
+    StellarClient,
+    StellarConfigurationError,
+    StellarTransactionError,
+)
 from app.verification_service import VERIFIABLE_STATUSES
 from tests.conftest import (
     BASE_BRANCH,
@@ -21,6 +27,8 @@ from tests.conftest import (
     OWNER,
     PULL_NUMBER,
     REPO,
+    SENSITIVE_RPC_URL,
+    DownSorobanServer,
     FakeGitHub,
     FakeStellar,
     changed_file,
@@ -1326,3 +1334,77 @@ def test_unpayable_bounty_is_rejected_even_when_the_result_would_not_pass(
     assert github.requests == []
     assert stellar.builds == 0
     assert count(session_factory, Verification) == 0
+
+
+# ─────────────────────────────────────────
+# Fallos de transporte.
+# ─────────────────────────────────────────
+
+
+def test_github_transport_error_during_verify_returns_502(
+    client: TestClient, session_factory: sessionmaker[Session], github: FakeGitHub
+) -> None:
+    bounty_id = submitted_bounty(client, session_factory)
+
+    github.transport_error = httpx.ConnectError("[Errno 11001] getaddrinfo failed")
+
+    response = client.post(f"/bounties/{bounty_id}/verify")
+
+    assert response.status_code == 502
+    assert response.json() == {"detail": "GitHub verification service unavailable"}
+
+    # Fallo antes de persistir: ni Verification ni cambio de estado.
+    assert count(session_factory, Verification) == 0
+    assert bounty_status(session_factory, bounty_id) == BountyStatus.SUBMITTED
+
+
+def test_github_transport_error_during_submission_returns_502(
+    client: TestClient, session_factory: sessionmaker[Session], github: FakeGitHub
+) -> None:
+    bounty_id = create_bounty(session_factory)
+
+    github.transport_error = httpx.ReadTimeout("timed out")
+
+    response = submit(client, bounty_id)
+
+    assert response.status_code == 502
+    assert response.json() == {"detail": "GitHub verification service unavailable"}
+    assert count(session_factory, Submission) == 0
+
+
+def test_stellar_rpc_transport_error_during_payout_returns_502(
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    bounty_id = submitted_bounty(client, session_factory)
+
+    verifier = Keypair.random()
+
+    # StellarClient real con el RPC caido, en lugar del FakeStellar.
+    monkeypatch.setattr(stellar_client, "SorobanServer", DownSorobanServer)
+    monkeypatch.setattr(
+        verification_service,
+        "get_stellar_client",
+        lambda: StellarClient(
+            rpc_url=SENSITIVE_RPC_URL,
+            network_passphrase="Test SDF Network ; September 2015",
+            contract_id=StrKey.encode_contract(b"\x11" * 32),
+            verifier_secret=verifier.secret,
+        ),
+    )
+
+    response = client.post(f"/bounties/{bounty_id}/verify")
+
+    assert response.status_code == 502
+    assert response.json() == {"detail": "Stellar payout failed"}
+
+    assert verifier.secret not in response.text
+    assert "PAID-PROVIDER-KEY" not in response.text
+
+    # El PASS de GitHub sobrevive a la caida de Stellar, como antes.
+    assert bounty_status(session_factory, bounty_id) == BountyStatus.ELIGIBLE
+
+    with session_factory() as db:
+        verification = db.scalars(select(Verification)).one()
+        assert verification.status == VerificationStatus.PASS

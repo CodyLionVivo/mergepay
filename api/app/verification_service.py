@@ -17,6 +17,7 @@ from app.github_client import (
     CheckRunsTooLargeError,
     GitHubClient,
     GitHubForbiddenError,
+    GitHubTransportError,
     GitHubUnauthorizedError,
     GitHubUnexpectedStatusError,
     InvalidPullRequestUrlError,
@@ -100,6 +101,7 @@ def github_errors_as_http() -> Iterator[None]:
         GitHubUnauthorizedError,
         GitHubForbiddenError,
         GitHubUnexpectedStatusError,
+        GitHubTransportError,
     ) as error:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,

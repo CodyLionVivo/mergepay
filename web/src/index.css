@@ -141,6 +141,19 @@ code {
   border-color: var(--text-secondary);
 }
 
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.button--primary:disabled:hover {
+  background-color: var(--primary);
+}
+
+.button--secondary:disabled:hover {
+  border-color: var(--border-strong);
+}
+
 .card {
   border: 1px solid var(--border);
   border-radius: var(--radius);

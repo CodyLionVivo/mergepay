@@ -8,6 +8,7 @@ nada sobre el bounty.
 import re
 from types import TracebackType
 from typing import Any, Self
+from urllib.parse import quote
 
 import httpx
 
@@ -72,6 +73,14 @@ class PullRequestTooLargeError(GitHubError):
 
 class CheckRunsTooLargeError(GitHubError):
     """El commit tiene mas check runs de los que soporta el MVP."""
+
+
+class BranchNotFoundError(GitHubError):
+    """GitHub no encontro el repositorio o la rama pedidos."""
+
+
+class GitHubTransportError(GitHubError):
+    """No se llego a obtener respuesta de GitHub (red, DNS, timeout)."""
 
 
 def parse_pull_request_url(pull_request_url: str) -> PullRequestRef:
@@ -142,7 +151,15 @@ class GitHubClient:
         a una excepcion propia. Los mensajes no incluyen el token ni el cuerpo
         de la respuesta.
         """
-        response = self._client.get(path, params=params)
+        try:
+            response = self._client.get(path, params=params)
+        except httpx.RequestError as error:
+            # Solo fallos de transporte (conexion, DNS, timeouts...). Se corta
+            # la cadena: la excepcion de httpx lleva la Request, y con ella
+            # la cabecera Authorization.
+            raise GitHubTransportError(
+                f"GitHub request failed for {path}: {type(error).__name__}"
+            ) from None
 
         if response.status_code == 404:
             raise PullRequestNotFoundError(f"GitHub returned 404 for {path}")
@@ -234,6 +251,36 @@ class GitHubClient:
         files = self.list_pull_request_files(ref)
 
         return PullRequestInspection(**summary.model_dump(), files=files)
+
+    def get_branch_head_sha(self, owner: str, repo: str, branch: str) -> str:
+        """SHA del commit al que apunta hoy la rama. Solo el SHA.
+
+        Cada segmento se codifica por separado: vienen de datos que escribio un
+        usuario, y una rama como `feature/x` debe viajar como un solo segmento.
+        """
+        path = "/repos/{}/{}/commits/{}".format(
+            quote(owner, safe=""),
+            quote(repo, safe=""),
+            quote(branch, safe=""),
+        )
+
+        try:
+            payload = self._get(path)
+        except PullRequestNotFoundError as error:
+            # `_get` nombra el 404 pensando en PRs. Aqui significa que no
+            # existe el repo o la rama, y se traduce sin tocar esa excepcion.
+            raise BranchNotFoundError(
+                f"GitHub branch not found: {owner}/{repo}@{branch}"
+            ) from error
+
+        sha = payload.get("sha") if isinstance(payload, dict) else None
+
+        if not isinstance(sha, str) or sha == "":
+            raise GitHubUnexpectedStatusError(
+                f"GitHub returned no commit SHA for {path}"
+            )
+
+        return sha
 
 
 def _to_file(item: dict[str, Any]) -> PullRequestFile:

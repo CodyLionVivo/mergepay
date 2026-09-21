@@ -1,13 +1,63 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, CircleDashed, Info, RotateCcw } from 'lucide-react'
+import { AlertTriangle, CircleDashed, RotateCcw, ShieldCheck } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { ApiError, getBounty } from '../api/client'
 import { BountyStatusBadge } from '../components/BountyStatusBadge'
+import { FundingPanel } from '../components/FundingPanel'
 import { PageHeader } from '../components/PageHeader'
+import { abbreviateAddress } from '../stellar/walletContext'
 import type { Bounty } from '../types/bounty'
 import { abbreviateHash, formatUnixSeconds } from '../utils/format'
 import { formatXlm } from '../utils/xlm'
 import './BountyDetailPage.css'
+
+/** Escrow ya creado y confirmado por MergePay, aun sin liberar. */
+function FundedSummary({ bounty }: { bounty: Bounty }) {
+  return (
+    <section className="detail-notice detail-notice--success" aria-labelledby="funded-title">
+      <ShieldCheck size={18} aria-hidden="true" />
+      <div className="detail-notice__body">
+        <h2 className="detail-notice__title" id="funded-title">
+          Reward secured on Stellar Testnet.
+        </h2>
+        <dl className="funded-facts">
+          <div>
+            <dt>Reward</dt>
+            <dd>{formatXlm(bounty.amount_stroops)} XLM</dd>
+          </div>
+          {bounty.client_wallet !== null ? (
+            <div>
+              <dt>Client wallet</dt>
+              <dd>
+                <code title={bounty.client_wallet}>
+                  {abbreviateAddress(bounty.client_wallet)}
+                </code>
+              </dd>
+            </div>
+          ) : null}
+          {bounty.create_tx_hash !== null ? (
+            <div>
+              <dt>Funding transaction</dt>
+              <dd>
+                <code title={bounty.create_tx_hash}>
+                  {abbreviateHash(bounty.create_tx_hash)}
+                </code>
+              </dd>
+            </div>
+          ) : null}
+          {bounty.base_sha !== null ? (
+            <div>
+              <dt>Base commit</dt>
+              <dd>
+                <code title={bounty.base_sha}>{abbreviateHash(bounty.base_sha)}</code>
+              </dd>
+            </div>
+          ) : null}
+        </dl>
+      </div>
+    </section>
+  )
+}
 
 type LoadState = 'loading' | 'not-found' | 'error' | 'ready'
 
@@ -187,6 +237,13 @@ export function BountyDetailPage() {
     (left, right) => left.position - right.position,
   )
 
+  /** La respuesta de POST /funded ya es el bounty actualizado. */
+  function replaceBounty(updated: Bounty) {
+    setResult((current) =>
+      current === null ? current : { ...current, bounty: updated },
+    )
+  }
+
   return (
     <div className="shell">
       <PageHeader
@@ -196,26 +253,11 @@ export function BountyDetailPage() {
       />
 
       {bounty.status === 'DRAFT' ? (
-        <section className="detail-notice" aria-labelledby="draft-title">
-          <Info size={18} aria-hidden="true" />
-          <div className="detail-notice__body">
-            <h2 className="detail-notice__title" id="draft-title">
-              Draft task
-            </h2>
-            <p>
-              Draft tasks are created in MergePay but their reward has not been
-              secured on Stellar yet.
-            </p>
-            <div className="detail-notice__action">
-              <button type="button" className="button button--primary" disabled>
-                Secure reward
-              </button>
-              <span className="detail-notice__hint">
-                Wallet funding is added in the next step.
-              </span>
-            </div>
-          </div>
-        </section>
+        <FundingPanel bounty={bounty} onFunded={replaceBounty} />
+      ) : null}
+
+      {bounty.create_tx_hash !== null && bounty.release_tx_hash === null ? (
+        <FundedSummary bounty={bounty} />
       ) : null}
 
       <div className="detail-sections">

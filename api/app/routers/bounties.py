@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import verification_service
+from app import funding_service, verification_service
 from app.database import get_db
 from app.github_client import GitHubClient
 from app.hashing import compute_criteria_hash
@@ -10,6 +10,7 @@ from app.models import Bounty, BountyStatus, Criterion, Submission
 from app.schemas import (
     BountyCreate,
     BountyResponse,
+    FundingConfirmationCreate,
     SubmissionCreate,
     SubmissionResponse,
     VerificationRecordResponse,
@@ -72,6 +73,20 @@ def list_bounties(db: Session = Depends(get_db)) -> list[Bounty]:
 @router.get("/{bounty_id}", response_model=BountyResponse)
 def get_bounty(bounty_id: int, db: Session = Depends(get_db)) -> Bounty:
     return _get_bounty_or_404(db, bounty_id)
+
+
+@router.post("/{bounty_id}/funded", response_model=BountyResponse)
+def confirm_funding(
+    bounty_id: int,
+    payload: FundingConfirmationCreate,
+    db: Session = Depends(get_db),
+    github: GitHubClient = Depends(get_github_client),
+) -> Bounty:
+    bounty = _get_bounty_or_404(db, bounty_id)
+
+    return funding_service.confirm_funding(
+        db, bounty, payload.transaction_hash, github
+    )
 
 
 @router.post(

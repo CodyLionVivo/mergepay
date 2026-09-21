@@ -11,7 +11,9 @@ from app.github_client import (
     MAX_FILES,
     CheckRunsTooLargeError,
     GitHubClient,
+    GitHubError,
     GitHubForbiddenError,
+    GitHubTransportError,
     GitHubUnauthorizedError,
     GitHubUnexpectedStatusError,
     InvalidPullRequestUrlError,
@@ -576,3 +578,63 @@ def test_no_authorization_header_without_token(
         client.get_pull_request(parse_pull_request_url(PULL_REQUEST_URL))
 
     assert "authorization" not in seen
+
+
+# ─────────────────────────────────────────
+# Fallos de transporte.
+# ─────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    "transport_error",
+    [
+        httpx.ConnectError("[Errno 11001] getaddrinfo failed"),
+        httpx.ReadTimeout("timed out"),
+        httpx.RemoteProtocolError("peer closed connection"),
+    ],
+    ids=["connect", "timeout", "protocol"],
+)
+def test_transport_failure_raises_github_transport_error(
+    transport_error: httpx.RequestError,
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise transport_error
+
+    with make_client(handler) as client:
+        with pytest.raises(GitHubTransportError):
+            client.inspect_pull_request(PULL_REQUEST_URL)
+
+
+def test_transport_error_is_a_github_error() -> None:
+    # Las capas de arriba que ya capturan GitHubError lo cubren sin cambios.
+    assert issubclass(GitHubTransportError, GitHubError)
+
+
+def test_transport_error_never_leaks_the_token() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("boom", request=request)
+
+    with make_client(handler, token="super-secret-token") as client:
+        with pytest.raises(GitHubTransportError) as raised:
+            client.get_branch_head_sha(OWNER, REPO, "main")
+
+    assert "super-secret-token" not in repr(raised.value)
+
+    # La excepcion de httpx lleva la Request (y su Authorization): no viaja.
+    assert raised.value.__cause__ is None
+    assert raised.value.__suppress_context__ is True
+
+
+def test_http_errors_keep_their_existing_exceptions() -> None:
+    # El parche de transporte no cambia como se tratan las respuestas HTTP.
+    for status_code, expected in [
+        (404, PullRequestNotFoundError),
+        (401, GitHubUnauthorizedError),
+        (403, GitHubForbiddenError),
+        (500, GitHubUnexpectedStatusError),
+    ]:
+        handler = make_handler(pull_response=httpx.Response(status_code, json={}))
+
+        with make_client(handler) as client:
+            with pytest.raises(expected):
+                client.inspect_pull_request(PULL_REQUEST_URL)

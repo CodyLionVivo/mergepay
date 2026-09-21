@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
 
 NonEmptyStr = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
@@ -163,6 +163,25 @@ class PullRequestVerificationResult(BaseModel):
 # ─────────────────────────────────────────
 # Submissions y verificaciones persistidas.
 # ─────────────────────────────────────────
+
+
+class FundingConfirmationCreate(BaseModel):
+    """Solo el hash: wallet, montos y status los decide el backend on-chain.
+
+    `extra="forbid"` rechaza cualquier otro campo en vez de ignorarlo, para que
+    un cliente no pueda creer que su `client_wallet` o su `amount` cuentan.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    transaction_hash: Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{64}$")]
+
+    @field_validator("transaction_hash", mode="before")
+    @classmethod
+    def _normalize_hash(cls, value: object) -> object:
+        # Pydantic evalua `pattern` antes que strip/to_lower, asi que la
+        # normalizacion tiene que ir en un validador previo.
+        return value.strip().lower() if isinstance(value, str) else value
 
 
 class SubmissionCreate(BaseModel):

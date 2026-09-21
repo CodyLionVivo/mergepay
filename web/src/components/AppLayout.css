@@ -70,6 +70,14 @@
   box-shadow: inset 0 -2px 0 var(--primary);
 }
 
+.app__status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .app__main {
   flex: 1;
   padding-block: 40px 72px;

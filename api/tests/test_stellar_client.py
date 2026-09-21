@@ -2,13 +2,19 @@ from dataclasses import dataclass
 from typing import Any
 
 import pytest
+import requests
 from stellar_sdk import Account, Address, Keypair, TransactionEnvelope, scval
+from stellar_sdk.exceptions import BadResponseError, SorobanRpcErrorResponse
+from stellar_sdk.exceptions import Response as RpcResponse
+from stellar_sdk.exceptions import ConnectionError as RpcConnectionError
 from stellar_sdk.soroban_rpc import GetTransactionStatus, SendTransactionStatus
 from stellar_sdk.strkey import StrKey
+from stellar_sdk.xdr import SCVal
 
 from app import stellar_client as stellar_module
 from app.config import settings
 from app.stellar_client import (
+    OnChainBounty,
     StellarClient,
     StellarConfigurationError,
     StellarTransactionError,
@@ -36,6 +42,17 @@ class FakeGetResponse:
     status: GetTransactionStatus
 
 
+@dataclass
+class FakeHostFunctionResult:
+    xdr: str | None
+
+
+@dataclass
+class FakeSimulateResponse:
+    error: str | None
+    results: list[FakeHostFunctionResult] | None
+
+
 class FakeSorobanServer:
     """Frontera RPC sustituida: registra lo enviado y no toca la red."""
 
@@ -46,11 +63,50 @@ class FakeSorobanServer:
         self.prepared: list[TransactionEnvelope] = []
         self.sent: list[TransactionEnvelope] = []
         self.polled: list[str] = []
+        self.simulated: list[TransactionEnvelope] = []
+        self.looked_up: list[str] = []
 
         self.send_status = SendTransactionStatus.PENDING
         self.poll_status = GetTransactionStatus.SUCCESS
 
+        # Lo que devuelve una simulacion de get_bounty.
+        self.simulation_error: str | None = None
+        self.simulation_results: list[FakeHostFunctionResult] | None = None
+
+        # Lo que devuelve get_transaction.
+        self.transaction_status = GetTransactionStatus.SUCCESS
+
+        # Fallo de transporte: los metodos de `fail_on` lanzan `failure`.
+        self.fail_on: set[str] = set()
+        self.failure: Exception = RpcConnectionError("connection failed")
+
+    def _maybe_fail(self, method: str) -> None:
+        if method in self.fail_on:
+            raise self.failure
+
+    def simulate_transaction(
+        self, transaction_envelope: TransactionEnvelope, **kwargs: Any
+    ) -> FakeSimulateResponse:
+        self._maybe_fail("simulate_transaction")
+
+        self.simulated.append(transaction_envelope)
+
+        return FakeSimulateResponse(self.simulation_error, self.simulation_results)
+
+    def get_transaction(self, transaction_hash: str) -> FakeGetResponse:
+        self._maybe_fail("get_transaction")
+
+        self.looked_up.append(transaction_hash)
+
+        return FakeGetResponse(self.transaction_status)
+
+    def returns(self, value: SCVal) -> None:
+        """Hace que la proxima simulacion devuelva este SCVal."""
+        self.simulation_results = [FakeHostFunctionResult(value.to_xdr())]
+
     def load_account(self, account_id: str) -> Account:
+        self._maybe_fail("load_account")
+
         self.loaded_accounts.append(account_id)
 
         return Account(account_id, 1)
@@ -58,6 +114,8 @@ class FakeSorobanServer:
     def prepare_transaction(
         self, transaction_envelope: TransactionEnvelope
     ) -> TransactionEnvelope:
+        self._maybe_fail("prepare_transaction")
+
         self.prepared.append(transaction_envelope)
 
         return transaction_envelope
@@ -65,6 +123,8 @@ class FakeSorobanServer:
     def send_transaction(
         self, transaction_envelope: TransactionEnvelope
     ) -> FakeSendResponse:
+        self._maybe_fail("send_transaction")
+
         self.sent.append(transaction_envelope)
 
         return FakeSendResponse(self.send_status)
@@ -72,6 +132,8 @@ class FakeSorobanServer:
     def poll_transaction(
         self, transaction_hash: str, **kwargs: Any
     ) -> FakeGetResponse:
+        self._maybe_fail("poll_transaction")
+
         self.polled.append(transaction_hash)
 
         return FakeGetResponse(self.poll_status)
@@ -381,3 +443,407 @@ def test_successful_release_never_returns_sdk_objects(
 
     assert isinstance(result, str)
     assert VERIFIER_SECRET not in result
+
+
+# ─────────────────────────────────────────
+# get_bounty: lectura on-chain por simulacion.
+# ─────────────────────────────────────────
+
+CLIENT_ADDRESS = Keypair.random().public_key
+DEVELOPER_ADDRESS = Keypair.random().public_key
+CRITERIA_HASH = "c1" * 32
+ON_CHAIN_DEADLINE = 1_767_225_600
+
+
+def bounty_scval(**overrides: SCVal) -> SCVal:
+    """El struct `Bounty` tal como lo codifica el contrato: un mapa de simbolos."""
+    fields: dict[str, SCVal] = {
+        "amount": scval.to_int128(100_000_000),
+        "client": scval.to_address(CLIENT_ADDRESS),
+        "criteria_hash": scval.to_bytes(bytes.fromhex(CRITERIA_HASH)),
+        "deadline": scval.to_uint64(ON_CHAIN_DEADLINE),
+        "developer": scval.to_void(),
+        "evidence_hash": scval.to_void(),
+        "status": scval.to_vec([scval.to_symbol("Open")]),
+    }
+
+    fields.update(overrides)
+
+    return scval.to_map({scval.to_symbol(key): value for key, value in fields.items()})
+
+
+def test_get_bounty_decodes_an_open_bounty(
+    stellar: StellarClient, server: FakeSorobanServer
+) -> None:
+    server.returns(bounty_scval())
+
+    bounty = stellar.get_bounty(BOUNTY_ID)
+
+    assert bounty == OnChainBounty(
+        client=CLIENT_ADDRESS,
+        developer=None,
+        amount=100_000_000,
+        criteria_hash=CRITERIA_HASH,
+        evidence_hash=None,
+        deadline=ON_CHAIN_DEADLINE,
+        status="Open",
+    )
+
+
+def test_get_bounty_decodes_optional_fields_when_present(
+    stellar: StellarClient, server: FakeSorobanServer
+) -> None:
+    server.returns(
+        bounty_scval(
+            developer=scval.to_address(DEVELOPER_ADDRESS),
+            evidence_hash=scval.to_bytes(bytes.fromhex("EE" * 32)),
+            status=scval.to_vec([scval.to_symbol("Assigned")]),
+        )
+    )
+
+    bounty = stellar.get_bounty(BOUNTY_ID)
+
+    assert bounty.developer == DEVELOPER_ADDRESS
+    # Los bytes se normalizan a hex en minusculas.
+    assert bounty.evidence_hash == "ee" * 32
+    assert bounty.status == "Assigned"
+
+
+def test_get_bounty_only_simulates(
+    stellar: StellarClient, server: FakeSorobanServer
+) -> None:
+    server.returns(bounty_scval())
+
+    stellar.get_bounty(BOUNTY_ID)
+
+    assert len(server.simulated) == 1
+
+    # Solo lectura: nada se prepara, se firma ni se envia.
+    assert server.prepared == []
+    assert server.sent == []
+    assert server.simulated[0].signatures == []
+
+
+def test_get_bounty_invokes_get_bounty_with_the_u64_id(
+    stellar: StellarClient, server: FakeSorobanServer
+) -> None:
+    server.returns(bounty_scval())
+
+    stellar.get_bounty(BOUNTY_ID)
+
+    invoke = invoked_operation(server.simulated[0]).host_function.invoke_contract
+
+    assert invoke.function_name.sc_symbol.decode() == "get_bounty"
+    assert len(invoke.args) == 1
+    assert scval.from_uint64(invoke.args[0]) == BOUNTY_ID
+
+
+@pytest.mark.parametrize("bounty_id", [0, -1])
+def test_get_bounty_rejects_invalid_ids_before_rpc(
+    stellar: StellarClient, server: FakeSorobanServer, bounty_id: int
+) -> None:
+    with pytest.raises(StellarTransactionError):
+        stellar.get_bounty(bounty_id)
+
+    assert server.loaded_accounts == []
+    assert server.simulated == []
+
+
+def test_get_bounty_raises_on_simulation_error(
+    stellar: StellarClient, server: FakeSorobanServer
+) -> None:
+    server.simulation_error = "HostError: Error(Contract, #3)"
+
+    with pytest.raises(StellarTransactionError):
+        stellar.get_bounty(BOUNTY_ID)
+
+
+@pytest.mark.parametrize(
+    "results",
+    [None, [], [FakeHostFunctionResult(None)]],
+    ids=["none", "empty", "no-xdr"],
+)
+def test_get_bounty_raises_without_a_return_value(
+    stellar: StellarClient,
+    server: FakeSorobanServer,
+    results: list[FakeHostFunctionResult] | None,
+) -> None:
+    server.simulation_results = results
+
+    with pytest.raises(StellarTransactionError):
+        stellar.get_bounty(BOUNTY_ID)
+
+
+def test_get_bounty_raises_on_corrupt_xdr(
+    stellar: StellarClient, server: FakeSorobanServer
+) -> None:
+    server.simulation_results = [FakeHostFunctionResult("%%%no-es-xdr%%%")]
+
+    with pytest.raises(StellarTransactionError):
+        stellar.get_bounty(BOUNTY_ID)
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        scval.to_uint64(1),
+        scval.to_vec([scval.to_symbol("Open")]),
+        bounty_scval(amount=scval.to_bool(True)),
+        bounty_scval(amount=scval.to_string("100")),
+        bounty_scval(client=scval.to_string(CLIENT_ADDRESS)),
+        bounty_scval(criteria_hash=scval.to_bytes(b"\x01" * 31)),
+        bounty_scval(status=scval.to_symbol("Open")),
+        bounty_scval(status=scval.to_vec([])),
+        bounty_scval(extra=scval.to_uint64(1)),
+    ],
+    ids=[
+        "not-a-map",
+        "a-vector",
+        "amount-bool",
+        "amount-string",
+        "client-string",
+        "short-hash",
+        "status-bare-symbol",
+        "status-empty",
+        "unknown-field",
+    ],
+)
+def test_get_bounty_rejects_unexpected_payloads(
+    stellar: StellarClient, server: FakeSorobanServer, payload: SCVal
+) -> None:
+    server.returns(payload)
+
+    with pytest.raises(StellarTransactionError):
+        stellar.get_bounty(BOUNTY_ID)
+
+
+def test_get_bounty_rejects_a_missing_field(
+    stellar: StellarClient, server: FakeSorobanServer
+) -> None:
+    fields = {
+        scval.to_symbol("amount"): scval.to_int128(1),
+        scval.to_symbol("client"): scval.to_address(CLIENT_ADDRESS),
+    }
+
+    server.returns(scval.to_map(fields))
+
+    with pytest.raises(StellarTransactionError):
+        stellar.get_bounty(BOUNTY_ID)
+
+
+# ─────────────────────────────────────────
+# assert_transaction_success.
+# ─────────────────────────────────────────
+
+FUNDING_TX = "a1" * 32
+
+
+def test_successful_transaction_passes(
+    stellar: StellarClient, server: FakeSorobanServer
+) -> None:
+    assert stellar.assert_transaction_success(FUNDING_TX) is None
+    assert server.looked_up == [FUNDING_TX]
+
+
+def test_transaction_hash_is_lowercased_for_rpc(
+    stellar: StellarClient, server: FakeSorobanServer
+) -> None:
+    stellar.assert_transaction_success(FUNDING_TX.upper())
+
+    assert server.looked_up == [FUNDING_TX]
+
+
+@pytest.mark.parametrize(
+    "transaction_status",
+    [GetTransactionStatus.FAILED, GetTransactionStatus.NOT_FOUND],
+)
+def test_non_success_transaction_raises(
+    stellar: StellarClient,
+    server: FakeSorobanServer,
+    transaction_status: GetTransactionStatus,
+) -> None:
+    server.transaction_status = transaction_status
+
+    with pytest.raises(StellarTransactionError) as raised:
+        stellar.assert_transaction_success(FUNDING_TX)
+
+    assert transaction_status.value in str(raised.value)
+
+    # Sin polling: una sola consulta.
+    assert server.looked_up == [FUNDING_TX]
+
+
+@pytest.mark.parametrize(
+    "transaction_hash",
+    ["", "a1" * 31, "a1" * 33, "zz" * 32, " " + "a1" * 31 + "a"],
+)
+def test_invalid_transaction_hash_raises_before_rpc(
+    stellar: StellarClient, server: FakeSorobanServer, transaction_hash: str
+) -> None:
+    with pytest.raises(StellarTransactionError):
+        stellar.assert_transaction_success(transaction_hash)
+
+    assert server.looked_up == []
+
+
+def test_read_errors_never_leak_the_verifier_secret(
+    stellar: StellarClient, server: FakeSorobanServer
+) -> None:
+    messages: list[str] = []
+
+    server.simulation_error = "boom"
+
+    for call in (
+        lambda: stellar.get_bounty(BOUNTY_ID),
+        lambda: stellar.get_bounty(0),
+        lambda: stellar.assert_transaction_success("nope"),
+    ):
+        try:
+            call()
+        except StellarTransactionError as error:
+            messages.append(repr(error))
+
+    server.transaction_status = GetTransactionStatus.FAILED
+
+    try:
+        stellar.assert_transaction_success(FUNDING_TX)
+    except StellarTransactionError as error:
+        messages.append(repr(error))
+
+    assert len(messages) == 4
+    assert all(VERIFIER_SECRET not in message for message in messages)
+
+
+# ─────────────────────────────────────────
+# Fallos de transporte del RPC.
+# ─────────────────────────────────────────
+
+SENSITIVE_RPC_URL = "https://rpc.example.invalid/?apiKey=PAID-PROVIDER-KEY"
+
+
+def transport_failures() -> list[Exception]:
+    """Lo que lanza el SDK cuando no hay respuesta RPC valida."""
+    gateway_page = BadResponseError(
+        RpcResponse(
+            status_code=502,
+            text="<html>bad gateway</html>",
+            headers={},
+            url=SENSITIVE_RPC_URL,
+        )
+    )
+
+    return [
+        RpcConnectionError(f"HTTPSConnectionPool: Max retries exceeded with url: {SENSITIVE_RPC_URL}"),
+        gateway_page,
+        requests.ConnectionError(f"connection refused for {SENSITIVE_RPC_URL}"),
+    ]
+
+
+TRANSPORT_IDS = ["sdk-connection", "non-json-5xx", "requests"]
+
+
+@pytest.mark.parametrize("failure", transport_failures(), ids=TRANSPORT_IDS)
+def test_assert_transaction_success_converts_transport_errors(
+    stellar: StellarClient, server: FakeSorobanServer, failure: Exception
+) -> None:
+    server.fail_on = {"get_transaction"}
+    server.failure = failure
+
+    with pytest.raises(StellarTransactionError):
+        stellar.assert_transaction_success(FUNDING_TX)
+
+
+@pytest.mark.parametrize("method", ["load_account", "simulate_transaction"])
+@pytest.mark.parametrize("failure", transport_failures(), ids=TRANSPORT_IDS)
+def test_get_bounty_converts_transport_errors(
+    stellar: StellarClient,
+    server: FakeSorobanServer,
+    method: str,
+    failure: Exception,
+) -> None:
+    server.fail_on = {method}
+    server.failure = failure
+
+    with pytest.raises(StellarTransactionError):
+        stellar.get_bounty(BOUNTY_ID)
+
+
+@pytest.mark.parametrize(
+    "method",
+    ["load_account", "prepare_transaction", "send_transaction", "poll_transaction"],
+)
+@pytest.mark.parametrize("failure", transport_failures(), ids=TRANSPORT_IDS)
+def test_release_bounty_converts_transport_errors(
+    stellar: StellarClient,
+    server: FakeSorobanServer,
+    method: str,
+    failure: Exception,
+) -> None:
+    server.fail_on = {method}
+    server.failure = failure
+
+    with pytest.raises(StellarTransactionError):
+        stellar.release_bounty(BOUNTY_ID, EVIDENCE_HASH)
+
+
+def test_local_validation_errors_are_not_converted(
+    stellar: StellarClient, server: FakeSorobanServer
+) -> None:
+    # Aunque el RPC este caido, una validacion local sigue siendo ValueError.
+    server.fail_on = {"load_account", "get_transaction"}
+
+    with pytest.raises(ValueError):
+        stellar.release_bounty(0, EVIDENCE_HASH)
+
+    with pytest.raises(ValueError):
+        stellar.release_bounty(BOUNTY_ID, "no-es-hex")
+
+
+def test_rpc_protocol_errors_are_not_treated_as_transport(
+    stellar: StellarClient, server: FakeSorobanServer
+) -> None:
+    # Una respuesta JSON-RPC de error esta bien formada: no es transporte y
+    # conserva su tipo, aunque herede de la misma base del SDK.
+    server.fail_on = {"get_transaction"}
+    server.failure = SorobanRpcErrorResponse(-32602, "invalid params")
+
+    with pytest.raises(SorobanRpcErrorResponse):
+        stellar.assert_transaction_success(FUNDING_TX)
+
+
+@pytest.mark.parametrize("failure", transport_failures(), ids=TRANSPORT_IDS)
+def test_transport_errors_never_leak_secret_or_rpc_url(
+    stellar: StellarClient, server: FakeSorobanServer, failure: Exception
+) -> None:
+    server.fail_on = {
+        "load_account",
+        "prepare_transaction",
+        "send_transaction",
+        "poll_transaction",
+        "simulate_transaction",
+        "get_transaction",
+    }
+    server.failure = failure
+
+    raised: list[StellarTransactionError] = []
+
+    for call in (
+        lambda: stellar.release_bounty(BOUNTY_ID, EVIDENCE_HASH),
+        lambda: stellar.get_bounty(BOUNTY_ID),
+        lambda: stellar.assert_transaction_success(FUNDING_TX),
+    ):
+        with pytest.raises(StellarTransactionError) as caught:
+            call()
+
+        raised.append(caught.value)
+
+    for error in raised:
+        text = repr(error)
+
+        assert VERIFIER_SECRET not in text
+        assert "PAID-PROVIDER-KEY" not in text
+        assert "bad gateway" not in text
+
+        # La excepcion original (con URL y cuerpo) no viaja encadenada.
+        assert error.__cause__ is None
+        assert error.__suppress_context__ is True

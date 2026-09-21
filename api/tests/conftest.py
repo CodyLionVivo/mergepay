@@ -7,12 +7,17 @@ from fastapi.testclient import TestClient
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
+from stellar_sdk.exceptions import ConnectionError as RpcConnectionError
 
-from app import verification_service
+from app import funding_service, verification_service
 from app.database import Base, get_db
 from app.github_client import GitHubClient
 from app.main import app
-from app.stellar_client import StellarConfigurationError, StellarTransactionError
+from app.stellar_client import (
+    OnChainBounty,
+    StellarConfigurationError,
+    StellarTransactionError,
+)
 from app.verification_service import get_github_client
 
 TRANSACTION_HASH = "7c" * 32
@@ -28,6 +33,8 @@ HEAD_SHA = "h" * 40
 DEVELOPER = "octodev"
 
 REQUIRED_CHECK_NAMES = ("build", "regression-tests", "acceptance-tests")
+
+BRANCH_HEAD_SHA = "d" * 40
 
 
 def changed_file(
@@ -87,9 +94,16 @@ class FakeGitHub:
         self.files: list[dict[str, Any]] = [changed_file("app/main.py")]
         self.check_runs: list[dict[str, Any]] = passing_check_runs()
 
+        # HEAD de la rama base, que es lo que resuelve el funding.
+        self.branch_head_sha = BRANCH_HEAD_SHA
+
         # Para forzar respuestas de error sin tocar el resto del doble.
         self.pull_response: httpx.Response | None = None
         self.check_runs_response: httpx.Response | None = None
+        self.branch_response: httpx.Response | None = None
+
+        # Fallo de red: cualquier peticion lanza esto en vez de responder.
+        self.transport_error: httpx.RequestError | None = None
 
         self.requests: list[httpx.Request] = []
 
@@ -118,6 +132,9 @@ class FakeGitHub:
     def handler(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
 
+        if self.transport_error is not None:
+            raise self.transport_error
+
         path = request.url.path
 
         if path.endswith("/check-runs"):
@@ -144,6 +161,20 @@ class FakeGitHub:
 
             return httpx.Response(200, json=self.pull_request_payload())
 
+        # /repos/{owner}/{repo}/commits/{branch}. Las check-runs tambien
+        # cuelgan de /commits/, pero ya se atendieron arriba.
+        if "/commits/" in path:
+            if self.branch_response is not None:
+                return self.branch_response
+
+            return httpx.Response(
+                200,
+                json={
+                    "sha": self.branch_head_sha,
+                    "commit": {"message": "campo que no debe aparecer"},
+                },
+            )
+
         raise AssertionError(f"ruta inesperada: {path}")
 
     @property
@@ -168,6 +199,15 @@ class FakeStellar:
         self.configuration_error: StellarConfigurationError | None = None
         self.transaction_error: StellarTransactionError | None = None
 
+        # Lecturas del funding: que transacciones y bounties se consultaron, y
+        # que devolver o lanzar en cada caso.
+        self.checked_transactions: list[str] = []
+        self.read_bounties: list[int] = []
+
+        self.on_chain: OnChainBounty | None = None
+        self.transaction_status_error: StellarTransactionError | None = None
+        self.read_error: StellarTransactionError | None = None
+
     def get_client(self) -> "FakeStellar":
         self.builds += 1
 
@@ -184,6 +224,50 @@ class FakeStellar:
 
         return self.transaction_hash
 
+    def assert_transaction_success(self, transaction_hash: str) -> None:
+        self.checked_transactions.append(transaction_hash)
+
+        if self.transaction_status_error is not None:
+            raise self.transaction_status_error
+
+    def get_bounty(self, bounty_id: int) -> OnChainBounty:
+        self.read_bounties.append(bounty_id)
+
+        if self.read_error is not None:
+            raise self.read_error
+
+        if self.on_chain is None:
+            raise StellarTransactionError("get_bounty simulation failed")
+
+        return self.on_chain
+
+
+# URL de RPC con aspecto de proveedor de pago: nunca debe aparecer en errores.
+SENSITIVE_RPC_URL = "https://rpc.example.invalid/?apiKey=PAID-PROVIDER-KEY"
+
+
+class DownSorobanServer:
+    """RPC inalcanzable: toda llamada falla como lo haria el SDK real.
+
+    Sustituye a SorobanServer por debajo de un StellarClient real, para probar
+    la conversion de transporte de punta a punta.
+    """
+
+    def __init__(self, server_url: str) -> None:
+        self.server_url = server_url
+
+    def _down(self, *args: Any, **kwargs: Any) -> Any:
+        raise RpcConnectionError(
+            f"HTTPSConnectionPool: Max retries exceeded with url: {SENSITIVE_RPC_URL}"
+        )
+
+    load_account = _down
+    simulate_transaction = _down
+    get_transaction = _down
+    prepare_transaction = _down
+    send_transaction = _down
+    poll_transaction = _down
+
 
 @pytest.fixture
 def github() -> FakeGitHub:
@@ -196,6 +280,7 @@ def stellar(monkeypatch: pytest.MonkeyPatch) -> FakeStellar:
     fake = FakeStellar()
 
     monkeypatch.setattr(verification_service, "get_stellar_client", fake.get_client)
+    monkeypatch.setattr(funding_service, "get_stellar_client", fake.get_client)
 
     return fake
 
