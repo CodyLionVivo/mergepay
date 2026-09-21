@@ -1,3 +1,4 @@
+import re
 from typing import Any
 
 import httpx
@@ -7,8 +8,11 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.hashing import compute_evidence_hash
 from app.models import Bounty, BountyStatus, Submission, Verification
 from app.schemas import PullRequestVerificationResult, VerificationStatus
+from app.stellar_client import StellarConfigurationError, StellarTransactionError
+from app.verification_service import VERIFIABLE_STATUSES
 from tests.conftest import (
     BASE_BRANCH,
     BASE_SHA,
@@ -18,6 +22,7 @@ from tests.conftest import (
     PULL_NUMBER,
     REPO,
     FakeGitHub,
+    FakeStellar,
     changed_file,
     check_run,
     passing_check_runs,
@@ -25,6 +30,7 @@ from tests.conftest import (
 
 PULL_REQUEST_URL = f"https://github.com/{OWNER}/{REPO}/pull/{PULL_NUMBER}"
 NEW_HEAD_SHA = "n" * 40
+CRITERIA_HASH = "c" * 64
 
 
 def create_bounty(session_factory: sessionmaker[Session], **overrides: Any) -> int:
@@ -36,6 +42,7 @@ def create_bounty(session_factory: sessionmaker[Session], **overrides: Any) -> i
         "repo_name": REPO,
         "base_branch": BASE_BRANCH,
         "base_sha": BASE_SHA,
+        "criteria_hash": CRITERIA_HASH,
         "developer_github": DEVELOPER,
         "status": BountyStatus.ASSIGNED,
         "amount_stroops": 100_000_000,
@@ -514,7 +521,7 @@ def test_missing_check_moves_bounty_to_verifying(
     assert bounty_status(session_factory, bounty_id) == BountyStatus.VERIFYING
 
 
-def test_passing_checks_move_bounty_to_eligible(
+def test_passing_checks_pay_the_bounty(
     client: TestClient, session_factory: sessionmaker[Session]
 ) -> None:
     bounty_id = submitted_bounty(client, session_factory)
@@ -527,7 +534,8 @@ def test_passing_checks_move_bounty_to_eligible(
     assert body["result"]["eligible_for_payout"] is True
     assert body["result"]["reasons"] == []
 
-    assert bounty_status(session_factory, bounty_id) == BountyStatus.ELIGIBLE
+    # ELIGIBLE es solo el paso intermedio: el payout deja el bounty en PAID.
+    assert bounty_status(session_factory, bounty_id) == BountyStatus.PAID
 
     with session_factory() as db:
         verification = db.scalars(select(Verification)).one()
@@ -645,7 +653,7 @@ def test_new_head_sha_updates_submission_and_keeps_history(
         assert verifications[1].head_sha == NEW_HEAD_SHA
         assert verifications[1].status == VerificationStatus.PASS
 
-    assert bounty_status(session_factory, bounty_id) == BountyStatus.ELIGIBLE
+    assert bounty_status(session_factory, bounty_id) == BountyStatus.PAID
 
 
 def test_verify_inspects_the_pull_request_on_every_call(
@@ -654,6 +662,14 @@ def test_verify_inspects_the_pull_request_on_every_call(
     bounty_id = submitted_bounty(client, session_factory)
 
     pull_path = f"/repos/{OWNER}/{REPO}/pulls/{PULL_NUMBER}"
+
+    # Se mantiene en FAIL para que el bounty siga siendo verificable: un PASS
+    # lo dejaria en PAID y la segunda llamada seria 409.
+    github.check_runs = [
+        check_run("build"),
+        check_run("regression-tests"),
+        check_run("acceptance-tests", conclusion="failure"),
+    ]
 
     del github.requests[:]
 
@@ -838,6 +854,13 @@ def test_submission_to_verification_is_one_to_many(
 ) -> None:
     bounty_id = submitted_bounty(client, session_factory)
 
+    # La primera pasada falla para que el bounty siga siendo verificable.
+    github.check_runs = [
+        check_run("build"),
+        check_run("regression-tests"),
+        check_run("acceptance-tests", conclusion="failure"),
+    ]
+
     client.post(f"/bounties/{bounty_id}/verify")
 
     github.set_head_sha(NEW_HEAD_SHA)
@@ -857,3 +880,449 @@ def test_submission_to_verification_is_one_to_many(
             verification.submission_id == submission.id
             for verification in submission.verifications
         )
+
+
+# ─────────────────────────────────────────
+# Payout: Stellar solo en PASS.
+# ─────────────────────────────────────────
+
+
+def failing_checks() -> list[dict[str, Any]]:
+    return [
+        check_run("build"),
+        check_run("regression-tests"),
+        check_run("acceptance-tests", conclusion="failure"),
+    ]
+
+
+def pending_checks() -> list[dict[str, Any]]:
+    return [
+        check_run("build"),
+        check_run("regression-tests"),
+        check_run("acceptance-tests", status="in_progress", conclusion=None),
+    ]
+
+
+def read_bounty_payout(
+    session_factory: sessionmaker[Session], bounty_id: int
+) -> tuple[str, str | None]:
+    with session_factory() as db:
+        bounty = db.get(Bounty, bounty_id)
+        assert bounty is not None
+
+        return bounty.status, bounty.release_tx_hash
+
+
+# ─────────────────────────────────────────
+# 1 a 4. FAIL y PENDING no tocan Stellar.
+# ─────────────────────────────────────────
+
+
+@pytest.mark.parametrize("checks", ["failing", "pending"])
+def test_non_passing_result_never_touches_stellar(
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    github: FakeGitHub,
+    stellar: FakeStellar,
+    checks: str,
+) -> None:
+    bounty_id = submitted_bounty(client, session_factory)
+
+    github.check_runs = failing_checks() if checks == "failing" else pending_checks()
+
+    response = client.post(f"/bounties/{bounty_id}/verify")
+
+    assert response.status_code == 200
+
+    # Ni se construye el cliente ni se llama al contrato.
+    assert stellar.builds == 0
+    assert stellar.calls == []
+
+    expected = (
+        BountyStatus.NEEDS_CHANGES if checks == "failing" else BountyStatus.VERIFYING
+    )
+
+    status, release_tx_hash = read_bounty_payout(session_factory, bounty_id)
+
+    assert status == expected
+    assert release_tx_hash is None
+
+
+def test_non_passing_result_works_without_stellar_configuration(
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    github: FakeGitHub,
+    stellar: FakeStellar,
+) -> None:
+    bounty_id = submitted_bounty(client, session_factory)
+
+    github.check_runs = failing_checks()
+    stellar.configuration_error = StellarConfigurationError("no configurado")
+
+    assert client.post(f"/bounties/{bounty_id}/verify").status_code == 200
+    assert stellar.builds == 0
+
+
+# ─────────────────────────────────────────
+# 5 a 9. PASS llega a Stellar con la evidencia correcta.
+# ─────────────────────────────────────────
+
+
+def test_pass_builds_the_client_and_releases_once(
+    client: TestClient, session_factory: sessionmaker[Session], stellar: FakeStellar
+) -> None:
+    bounty_id = submitted_bounty(client, session_factory)
+
+    client.post(f"/bounties/{bounty_id}/verify")
+
+    assert stellar.builds == 1
+    assert len(stellar.calls) == 1
+
+    called_bounty_id, evidence_hash = stellar.calls[0]
+
+    assert called_bounty_id == bounty_id
+    assert len(evidence_hash) == 64
+    assert re.fullmatch(r"[0-9a-f]{64}", evidence_hash)
+
+
+def test_evidence_hash_matches_compute_evidence_hash(
+    client: TestClient, session_factory: sessionmaker[Session], stellar: FakeStellar
+) -> None:
+    bounty_id = submitted_bounty(client, session_factory)
+
+    body = client.post(f"/bounties/{bounty_id}/verify").json()
+
+    result = PullRequestVerificationResult.model_validate(body["result"])
+
+    with session_factory() as db:
+        bounty = db.get(Bounty, bounty_id)
+        assert bounty is not None
+
+        submission = db.scalars(select(Submission)).one()
+
+        expected = compute_evidence_hash(
+            bounty_id=bounty.id,
+            repo_owner=bounty.repo_owner,
+            repo_name=bounty.repo_name,
+            base_branch=bounty.base_branch,
+            base_sha=bounty.base_sha,
+            criteria_hash=bounty.criteria_hash,
+            developer_github=bounty.developer_github,
+            pull_request_number=submission.pull_request_number,
+            pull_request_url=submission.pull_request_url,
+            verification=result,
+        )
+
+    assert stellar.calls[0][1] == expected
+
+
+# ─────────────────────────────────────────
+# 10 a 13 y 31. Payout con exito.
+# ─────────────────────────────────────────
+
+
+def test_successful_payout_marks_the_bounty_paid(
+    client: TestClient, session_factory: sessionmaker[Session], stellar: FakeStellar
+) -> None:
+    stellar.transaction_hash = "5d" * 32
+
+    bounty_id = submitted_bounty(client, session_factory)
+
+    body = client.post(f"/bounties/{bounty_id}/verify").json()
+
+    status, release_tx_hash = read_bounty_payout(session_factory, bounty_id)
+
+    assert status == BountyStatus.PAID
+    assert release_tx_hash == "5d" * 32
+
+    # El payout no toca la Verification.
+    assert body["result"]["status"] == VerificationStatus.PASS
+    assert body["result"]["eligible_for_payout"] is True
+
+    with session_factory() as db:
+        verification = db.scalars(select(Verification)).one()
+
+        assert verification.status == VerificationStatus.PASS
+        assert verification.eligible_for_payout is True
+
+
+def test_release_tx_hash_is_visible_through_get_bounty(
+    client: TestClient, session_factory: sessionmaker[Session], stellar: FakeStellar
+) -> None:
+    bounty_id = submitted_bounty(client, session_factory)
+
+    client.post(f"/bounties/{bounty_id}/verify")
+
+    body = client.get(f"/bounties/{bounty_id}").json()
+
+    assert body["release_tx_hash"] == stellar.transaction_hash
+    assert body["status"] == BountyStatus.PAID
+
+
+# ─────────────────────────────────────────
+# 14 a 16 y 30. Precondiciones de payout.
+# ─────────────────────────────────────────
+
+
+@pytest.mark.parametrize("missing", ["criteria_hash", "base_sha", "developer_github"])
+def test_missing_payout_field_returns_409_without_calling_stellar(
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    stellar: FakeStellar,
+    missing: str,
+) -> None:
+    bounty_id = submitted_bounty(client, session_factory)
+
+    with session_factory() as db:
+        bounty = db.get(Bounty, bounty_id)
+        assert bounty is not None
+        setattr(bounty, missing, None)
+        db.commit()
+
+    response = client.post(f"/bounties/{bounty_id}/verify")
+
+    assert response.status_code == 409
+    assert response.json() == {"detail": "Bounty is not ready for payout"}
+
+    assert stellar.builds == 0
+    assert stellar.calls == []
+
+    # Tampoco se registro la Verification.
+    assert count(session_factory, Verification) == 0
+
+
+def test_existing_release_tx_hash_returns_409_without_calling_stellar(
+    client: TestClient, session_factory: sessionmaker[Session], stellar: FakeStellar
+) -> None:
+    bounty_id = submitted_bounty(client, session_factory)
+
+    with session_factory() as db:
+        bounty = db.get(Bounty, bounty_id)
+        assert bounty is not None
+        bounty.release_tx_hash = "ff" * 32
+        db.commit()
+
+    response = client.post(f"/bounties/{bounty_id}/verify")
+
+    assert response.status_code == 409
+    assert response.json() == {"detail": "Bounty already has a payout transaction"}
+
+    assert stellar.builds == 0
+    assert stellar.calls == []
+    assert count(session_factory, Verification) == 0
+
+
+# ─────────────────────────────────────────
+# 17 a 24. Stellar falla, el PASS de GitHub sobrevive.
+# ─────────────────────────────────────────
+
+
+def assert_pass_survived_stellar_failure(
+    session_factory: sessionmaker[Session], bounty_id: int
+) -> None:
+    status, release_tx_hash = read_bounty_payout(session_factory, bounty_id)
+
+    assert status == BountyStatus.ELIGIBLE
+    assert release_tx_hash is None
+
+    with session_factory() as db:
+        verification = db.scalars(select(Verification)).one()
+
+        assert verification.status == VerificationStatus.PASS
+        assert verification.eligible_for_payout is True
+
+
+def test_stellar_configuration_error_returns_503(
+    client: TestClient, session_factory: sessionmaker[Session], stellar: FakeStellar
+) -> None:
+    bounty_id = submitted_bounty(client, session_factory)
+
+    stellar.configuration_error = StellarConfigurationError("falta el contract id")
+
+    response = client.post(f"/bounties/{bounty_id}/verify")
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Stellar payout service is not configured"}
+
+    # No se llego a invocar el contrato.
+    assert stellar.calls == []
+
+    assert_pass_survived_stellar_failure(session_factory, bounty_id)
+
+
+def test_stellar_transaction_error_returns_502(
+    client: TestClient, session_factory: sessionmaker[Session], stellar: FakeStellar
+) -> None:
+    bounty_id = submitted_bounty(client, session_factory)
+
+    stellar.transaction_error = StellarTransactionError("la red la rechazo")
+
+    response = client.post(f"/bounties/{bounty_id}/verify")
+
+    assert response.status_code == 502
+    assert response.json() == {"detail": "Stellar payout failed"}
+
+    # Se intento el pago, pero no hubo hash que guardar.
+    assert len(stellar.calls) == 1
+
+    assert_pass_survived_stellar_failure(session_factory, bounty_id)
+
+
+# ─────────────────────────────────────────
+# 25 a 27. Reintento desde ELIGIBLE.
+# ─────────────────────────────────────────
+
+
+def test_retry_from_eligible_pays_and_keeps_history(
+    client: TestClient, session_factory: sessionmaker[Session], stellar: FakeStellar
+) -> None:
+    bounty_id = submitted_bounty(client, session_factory)
+
+    stellar.transaction_error = StellarTransactionError("caida temporal")
+
+    assert client.post(f"/bounties/{bounty_id}/verify").status_code == 502
+    assert bounty_status(session_factory, bounty_id) == BountyStatus.ELIGIBLE
+
+    # Stellar se recupera y se vuelve a pedir verificacion.
+    stellar.transaction_error = None
+
+    assert client.post(f"/bounties/{bounty_id}/verify").status_code == 200
+
+    assert len(stellar.calls) == 2
+
+    status, release_tx_hash = read_bounty_payout(session_factory, bounty_id)
+
+    assert status == BountyStatus.PAID
+    assert release_tx_hash == stellar.transaction_hash
+
+    # Dos Verification PASS: la segunda no piso a la primera.
+    with session_factory() as db:
+        verifications = db.scalars(
+            select(Verification).order_by(Verification.id)
+        ).all()
+
+        assert len(verifications) == 2
+        assert [record.status for record in verifications] == [
+            VerificationStatus.PASS,
+            VerificationStatus.PASS,
+        ]
+        assert verifications[0].id != verifications[1].id
+
+
+def test_retry_reinspects_the_pull_request(
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    github: FakeGitHub,
+    stellar: FakeStellar,
+) -> None:
+    bounty_id = submitted_bounty(client, session_factory)
+
+    stellar.transaction_error = StellarTransactionError("caida temporal")
+
+    client.post(f"/bounties/{bounty_id}/verify")
+
+    stellar.transaction_error = None
+    github.set_head_sha(NEW_HEAD_SHA)
+
+    client.post(f"/bounties/{bounty_id}/verify")
+
+    # El segundo evidence hash se calcula sobre el commit nuevo.
+    assert stellar.calls[0][1] != stellar.calls[1][1]
+
+    with session_factory() as db:
+        submission = db.scalars(select(Submission)).one()
+
+        assert submission.head_sha == NEW_HEAD_SHA
+
+
+# ─────────────────────────────────────────
+# 28 y 29. PAID no se reverifica.
+# ─────────────────────────────────────────
+
+
+def test_paid_bounty_cannot_be_verified_again(
+    client: TestClient, session_factory: sessionmaker[Session], stellar: FakeStellar
+) -> None:
+    bounty_id = submitted_bounty(client, session_factory)
+
+    assert client.post(f"/bounties/{bounty_id}/verify").status_code == 200
+    assert bounty_status(session_factory, bounty_id) == BountyStatus.PAID
+
+    response = client.post(f"/bounties/{bounty_id}/verify")
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "detail": "Bounty cannot be verified in its current state"
+    }
+
+    # Un solo payout: no se pago dos veces.
+    assert len(stellar.calls) == 1
+    assert stellar.builds == 1
+
+
+def test_paid_is_not_a_verifiable_status() -> None:
+    assert BountyStatus.PAID.value not in VERIFIABLE_STATUSES
+
+
+# ─────────────────────────────────────────
+# 32. Los errores HTTP no filtran el secreto del verifier.
+# ─────────────────────────────────────────
+
+
+@pytest.mark.parametrize("failure", ["configuration", "transaction"])
+def test_payout_errors_never_leak_the_verifier_secret(
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    stellar: FakeStellar,
+    failure: str,
+) -> None:
+    leaked_secret = "SSECRETSEEDTHATMUSTNEVERREACHTHECLIENT00000000000000000"
+
+    bounty_id = submitted_bounty(client, session_factory)
+
+    if failure == "configuration":
+        stellar.configuration_error = StellarConfigurationError(
+            f"boom {leaked_secret}"
+        )
+    else:
+        stellar.transaction_error = StellarTransactionError(f"boom {leaked_secret}")
+
+    response = client.post(f"/bounties/{bounty_id}/verify")
+
+    assert response.status_code in (502, 503)
+
+    # Ni el secreto ni el mensaje original llegan al cliente.
+    assert leaked_secret not in response.text
+    assert "boom" not in response.text
+
+
+def test_unpayable_bounty_is_rejected_even_when_the_result_would_not_pass(
+    client, session_factory, github, stellar
+) -> None:
+    """La guarda corre antes de verificar, no solo antes de pagar.
+
+    Es una desviacion deliberada del orden literal de la spec: con
+    `developer_github` nulo el verifier ni siquiera termina, asi que un bounty
+    impagable se rechaza antes de inspeccionar el PR.
+    """
+    bounty_id = submitted_bounty(client, session_factory)
+
+    github.check_runs = failing_checks()
+
+    with session_factory() as db:
+        bounty = db.get(Bounty, bounty_id)
+        assert bounty is not None
+        bounty.criteria_hash = None
+        db.commit()
+
+    del github.requests[:]
+
+    response = client.post(f"/bounties/{bounty_id}/verify")
+
+    assert response.status_code == 409
+    assert response.json() == {"detail": "Bounty is not ready for payout"}
+
+    # Ni GitHub ni Stellar llegan a consultarse.
+    assert github.requests == []
+    assert stellar.builds == 0
+    assert count(session_factory, Verification) == 0

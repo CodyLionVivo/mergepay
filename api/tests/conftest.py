@@ -8,10 +8,14 @@ from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app import verification_service
 from app.database import Base, get_db
 from app.github_client import GitHubClient
 from app.main import app
+from app.stellar_client import StellarConfigurationError, StellarTransactionError
 from app.verification_service import get_github_client
+
+TRANSACTION_HASH = "7c" * 32
 
 # Valores por defecto del PR falso. Los tests que necesiten desviarse mutan la
 # instancia de FakeGitHub.
@@ -147,9 +151,53 @@ class FakeGitHub:
         return httpx.MockTransport(self.handler)
 
 
+class FakeStellar:
+    """Sustituye `get_stellar_client` y el cliente que devuelve.
+
+    Hace de las dos cosas a la vez: `get_client` ocupa el lugar del helper del
+    servicio y devuelve este mismo objeto como cliente, asi que un unico fake
+    permite contar construcciones y llamadas por separado.
+    """
+
+    def __init__(self) -> None:
+        self.builds = 0
+        self.calls: list[tuple[int, str]] = []
+
+        self.transaction_hash = TRANSACTION_HASH
+
+        self.configuration_error: StellarConfigurationError | None = None
+        self.transaction_error: StellarTransactionError | None = None
+
+    def get_client(self) -> "FakeStellar":
+        self.builds += 1
+
+        if self.configuration_error is not None:
+            raise self.configuration_error
+
+        return self
+
+    def release_bounty(self, bounty_id: int, evidence_hash: str) -> str:
+        self.calls.append((bounty_id, evidence_hash))
+
+        if self.transaction_error is not None:
+            raise self.transaction_error
+
+        return self.transaction_hash
+
+
 @pytest.fixture
 def github() -> FakeGitHub:
     return FakeGitHub()
+
+
+@pytest.fixture
+def stellar(monkeypatch: pytest.MonkeyPatch) -> FakeStellar:
+    """Instalado en todos los tests: nadie puede alcanzar Stellar de verdad."""
+    fake = FakeStellar()
+
+    monkeypatch.setattr(verification_service, "get_stellar_client", fake.get_client)
+
+    return fake
 
 
 @pytest.fixture
@@ -180,7 +228,9 @@ def session_factory(engine: Engine) -> sessionmaker[Session]:
 
 @pytest.fixture
 def client(
-    session_factory: sessionmaker[Session], github: FakeGitHub
+    session_factory: sessionmaker[Session],
+    github: FakeGitHub,
+    stellar: FakeStellar,
 ) -> Generator[TestClient, None, None]:
     """Cliente con la base y GitHub sustituidos por dobles.
 

@@ -24,7 +24,13 @@ from app.github_client import (
     PullRequestTooLargeError,
 )
 from app.github_verifier import DuplicateRequiredCheckError, verify_pull_request
+from app.hashing import compute_evidence_hash
 from app.models import Bounty, BountyStatus, Submission, Verification, utcnow
+from app.stellar_client import (
+    StellarClient,
+    StellarConfigurationError,
+    StellarTransactionError,
+)
 from app.schemas import (
     PullRequestVerificationResult,
     VerificationRecordResponse,
@@ -46,6 +52,15 @@ BOUNTY_STATUS_BY_VERIFICATION = {
     VerificationStatus.FAIL: BountyStatus.NEEDS_CHANGES,
     VerificationStatus.PENDING: BountyStatus.VERIFYING,
 }
+
+
+def get_stellar_client() -> StellarClient:
+    """Construye el cliente Stellar solo cuando hay algo que pagar.
+
+    Es una funcion y no una dependencia global a proposito: asi un bounty que
+    sale FAIL o PENDING se verifica igual aunque Stellar no este configurado.
+    """
+    return StellarClient.from_settings()
 
 
 def get_github_client() -> Generator[GitHubClient, None, None]:
@@ -117,6 +132,80 @@ def _structural_reasons(result: PullRequestVerificationResult) -> list[str]:
     return [
         reason for reason in result.reasons if not reason.startswith(check_prefixes)
     ]
+
+
+def _assert_ready_for_payout(bounty: Bounty, submission: Submission) -> None:
+    """Comprueba lo que hace falta para pagar, antes de tocar nada.
+
+    Se ejecuta antes de verificar y no solo antes de pagar: `base_sha` y
+    `developer_github` son entradas del propio verifier, asi que sin ellos la
+    verificacion no significa nada (y con `developer_github` nulo ni siquiera
+    llega a terminar).
+    """
+    if bounty.release_tx_hash is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Bounty already has a payout transaction",
+        )
+
+    if (
+        bounty.criteria_hash is None
+        or bounty.base_sha is None
+        or bounty.developer_github is None
+        or submission.pull_request_number is None
+        or submission.pull_request_url is None
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Bounty is not ready for payout",
+        )
+
+
+def _release_payout(
+    db: Session,
+    bounty: Bounty,
+    submission: Submission,
+    result: PullRequestVerificationResult,
+) -> None:
+    """Ancla la evidencia on-chain y marca el bounty como pagado.
+
+    La Verification PASS y el estado ELIGIBLE ya estan comprometidos cuando
+    esto se ejecuta: si Stellar falla no se revierten, porque GitHub si dio
+    PASS y eso no deja de ser cierto.
+    """
+    evidence_hash = compute_evidence_hash(
+        bounty_id=bounty.id,
+        repo_owner=bounty.repo_owner,
+        repo_name=bounty.repo_name,
+        base_branch=bounty.base_branch,
+        base_sha=bounty.base_sha,
+        criteria_hash=bounty.criteria_hash,
+        developer_github=bounty.developer_github,
+        pull_request_number=submission.pull_request_number,
+        pull_request_url=submission.pull_request_url,
+        verification=result,
+    )
+
+    try:
+        stellar = get_stellar_client()
+    except StellarConfigurationError as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Stellar payout service is not configured",
+        ) from error
+
+    try:
+        transaction_hash = stellar.release_bounty(bounty.id, evidence_hash)
+    except StellarTransactionError as error:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Stellar payout failed",
+        ) from error
+
+    bounty.release_tx_hash = transaction_hash
+    bounty.status = BountyStatus.PAID
+
+    _commit(db)
 
 
 def register_submission(
@@ -208,10 +297,10 @@ def run_verification(
             detail="Bounty cannot be verified in its current state",
         )
 
+    _assert_ready_for_payout(bounty, submission)
+
     # El developer puede haber hecho push desde la ultima pasada, asi que el
     # head SHA sale de esta inspeccion y los checks se piden para ese commit.
-    # base_sha y developer_github no pueden ser nulos: sin ellos no se habria
-    # podido crear la submission.
     with github_errors_as_http():
         inspection = github.inspect_pull_request(submission.pull_request_url)
 
@@ -246,8 +335,14 @@ def run_verification(
     bounty.pull_request_number = inspection.pull_number
     bounty.status = BOUNTY_STATUS_BY_VERIFICATION[result.status]
 
+    # COMMIT #1: submission al dia, Verification creada y bounty en ELIGIBLE
+    # si fue PASS. Ocurre antes de Stellar a proposito.
     _commit(db)
     db.refresh(verification)
+
+    # COMMIT #2, solo en PASS: el payout y su hash de transaccion.
+    if result.status is VerificationStatus.PASS:
+        _release_payout(db, bounty, submission, result)
 
     return verification
 
