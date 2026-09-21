@@ -1,0 +1,28 @@
+.api-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background-color: var(--surface);
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 550;
+  white-space: nowrap;
+}
+
+/* El icono acompaña siempre al texto: el estado no depende solo del color. */
+.api-status__icon {
+  flex-shrink: 0;
+}
+
+.api-status--healthy {
+  border-color: rgb(63 185 80 / 45%);
+  color: var(--success);
+}
+
+.api-status--error {
+  border-color: rgb(248 81 73 / 45%);
+  color: var(--danger);
+}

@@ -1,0 +1,79 @@
+.task-form {
+  display: flex;
+  max-width: 760px;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.task-form__section {
+  margin: 0;
+}
+
+/* El fieldset necesita reiniciar sus estilos nativos para verse como panel. */
+.task-form__criteria {
+  border: 1px solid var(--border);
+}
+
+.task-form__criteria legend {
+  padding: 0;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 18px;
+}
+
+.field label {
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-weight: 550;
+}
+
+.field input,
+.field textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background-color: var(--bg);
+  color: var(--text-primary);
+  font: inherit;
+  resize: vertical;
+}
+
+.field input::placeholder,
+.field textarea::placeholder {
+  color: #6b7789;
+}
+
+.field input:hover,
+.field textarea:hover {
+  border-color: var(--text-secondary);
+}
+
+.field-row {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 2fr 1fr;
+}
+
+.task-form__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  margin-top: 8px;
+}
+
+.task-form__note {
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+}
+
+@media (width <= 640px) {
+  .field-row {
+    grid-template-columns: 1fr;
+  }
+}
