@@ -3,10 +3,13 @@ import { AlertTriangle, CircleDashed, RotateCcw, ShieldCheck } from 'lucide-reac
 import { Link, useParams } from 'react-router-dom'
 import { ApiError, getBounty } from '../api/client'
 import { BountyStatusBadge } from '../components/BountyStatusBadge'
+import { AssignmentPanel } from '../components/AssignmentPanel'
 import { FundingPanel } from '../components/FundingPanel'
 import { PageHeader } from '../components/PageHeader'
+import { SubmissionPanel } from '../components/SubmissionPanel'
+import { SubmissionSummary } from '../components/SubmissionSummary'
 import { abbreviateAddress } from '../stellar/walletContext'
-import type { Bounty } from '../types/bounty'
+import type { Bounty, Submission } from '../types/bounty'
 import { abbreviateHash, formatUnixSeconds } from '../utils/format'
 import { formatXlm } from '../utils/xlm'
 import './BountyDetailPage.css'
@@ -61,6 +64,15 @@ function FundedSummary({ bounty }: { bounty: Bounty }) {
 
 type LoadState = 'loading' | 'not-found' | 'error' | 'ready'
 
+/** Estados en los que el PR ya esta registrado. */
+const SUBMITTED_STATUSES = new Set([
+  'SUBMITTED',
+  'VERIFYING',
+  'NEEDS_CHANGES',
+  'ELIGIBLE',
+  'PAID',
+])
+
 interface LoadResult {
   token: number
   bountyId: number
@@ -108,6 +120,10 @@ export function BountyDetailPage() {
 
   const [result, setResult] = useState<LoadResult | null>(null)
   const [reloadToken, setReloadToken] = useState(0)
+
+  // La submission recien creada en esta visita. No hay endpoint para
+  // leerla despues, asi que es lo unico que da el head SHA en el resumen.
+  const [lastSubmission, setLastSubmission] = useState<Submission | null>(null)
 
   // Igual que en el marketplace: "loading" se deriva en render comparando el
   // resultado guardado con la task y el intento actuales.
@@ -237,11 +253,24 @@ export function BountyDetailPage() {
     (left, right) => left.position - right.position,
   )
 
-  /** La respuesta de POST /funded ya es el bounty actualizado. */
+  /** POST /funded y POST /assigned ya devuelven el bounty actualizado. */
   function replaceBounty(updated: Bounty) {
     setResult((current) =>
       current === null ? current : { ...current, bounty: updated },
     )
+  }
+
+  /** POST /submission devuelve la submission, no el bounty: hay que releerlo. */
+  async function handleSubmitted(submission: Submission) {
+    setLastSubmission(submission)
+
+    try {
+      replaceBounty(await getBounty(submission.bounty_id))
+    } catch {
+      // Si el refresco silencioso falla, recarga completa: muestra el loading
+      // y, si el backend sigue caido, el estado de error con "Try again".
+      setReloadToken((token) => token + 1)
+    }
   }
 
   return (
@@ -254,6 +283,21 @@ export function BountyDetailPage() {
 
       {bounty.status === 'DRAFT' ? (
         <FundingPanel bounty={bounty} onFunded={replaceBounty} />
+      ) : null}
+
+      {bounty.status === 'OPEN_FUNDED' ? (
+        <AssignmentPanel bounty={bounty} onAssigned={replaceBounty} />
+      ) : null}
+
+      {bounty.status === 'ASSIGNED' ? (
+        <SubmissionPanel bounty={bounty} onSubmitted={handleSubmitted} />
+      ) : null}
+
+      {SUBMITTED_STATUSES.has(bounty.status) ? (
+        <SubmissionSummary
+          bounty={bounty}
+          submission={lastSubmission?.bounty_id === bounty.id ? lastSubmission : null}
+        />
       ) : null}
 
       {bounty.create_tx_hash !== null && bounty.release_tx_hash === null ? (

@@ -1,0 +1,162 @@
+.action-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 20px;
+  padding: 20px;
+  border: 1px solid rgb(88 166 255 / 35%);
+  border-radius: var(--radius);
+  background-color: var(--primary-soft);
+}
+
+.action-panel__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.action-panel__head > svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--primary);
+}
+
+.action-panel__title {
+  margin-bottom: 4px;
+  font-size: 0.9375rem;
+}
+
+/* Siempre visible: esto es Testnet y no hay dinero real en juego. */
+.action-panel__network {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 7px;
+  padding: 4px 10px;
+  border: 1px solid rgb(210 153 34 / 45%);
+  border-radius: 999px;
+  color: var(--warning);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.action-panel__action {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.action-panel__hint {
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+}
+
+.action-panel__hint--warning {
+  color: var(--warning);
+  font-weight: 550;
+}
+
+.action-panel__hint code {
+  word-break: break-all;
+}
+
+.action-panel__submitted {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid rgb(210 153 34 / 45%);
+  border-radius: var(--radius-sm);
+  background-color: var(--bg);
+}
+
+.action-panel__submitted-text {
+  font-weight: 600;
+}
+
+.action-panel__error {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid rgb(248 81 73 / 45%);
+  border-radius: var(--radius-sm);
+  background-color: rgb(248 81 73 / 10%);
+  font-size: 0.9375rem;
+}
+
+.action-panel__error svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--danger);
+}
+
+/* Datos clave del paso actual: recompensa, deadline, wallet asignada... */
+.action-panel__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 28px;
+  margin: 0;
+}
+
+.action-panel__facts dt {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.action-panel__facts dd {
+  margin: 4px 0 0;
+  font-weight: 550;
+}
+
+/* La accion esta bloqueada por la wallet conectada, no por un error. */
+.action-panel__blocked {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid rgb(210 153 34 / 45%);
+  border-radius: var(--radius-sm);
+  background-color: var(--bg);
+}
+
+.action-panel__blocked-title {
+  font-weight: 600;
+}
+
+.action-panel__form {
+  display: flex;
+  max-width: 520px;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.action-panel__form .field {
+  margin-top: 0;
+}
+
+.action-panel__reasons {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  list-style: disc;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+}
+
+.action-panel__reasons li + li {
+  margin-top: 2px;
+}
+
+/* Variante de exito: el paso ya se completo. */
+.action-panel--done {
+  border-color: rgb(63 185 80 / 45%);
+  background-color: rgb(63 185 80 / 8%);
+}
+
+.action-panel--done .action-panel__head > svg {
+  color: var(--success);
+}

@@ -2,12 +2,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import funding_service, verification_service
+from app import assignment_service, funding_service, verification_service
 from app.database import get_db
 from app.github_client import GitHubClient
 from app.hashing import compute_criteria_hash
 from app.models import Bounty, BountyStatus, Criterion, Submission
 from app.schemas import (
+    AssignmentConfirmationCreate,
     BountyCreate,
     BountyResponse,
     FundingConfirmationCreate,
@@ -86,6 +87,23 @@ def confirm_funding(
 
     return funding_service.confirm_funding(
         db, bounty, payload.transaction_hash, github
+    )
+
+
+@router.post("/{bounty_id}/assigned", response_model=BountyResponse)
+def confirm_assignment(
+    bounty_id: int,
+    payload: AssignmentConfirmationCreate,
+    db: Session = Depends(get_db),
+) -> Bounty:
+    bounty = _get_bounty_or_404(db, bounty_id)
+
+    return assignment_service.confirm_assignment(
+        db,
+        bounty,
+        payload.transaction_hash,
+        payload.developer_github,
+        payload.wallet_signature,
     )
 
 

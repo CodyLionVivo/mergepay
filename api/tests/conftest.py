@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 from stellar_sdk.exceptions import ConnectionError as RpcConnectionError
 
-from app import funding_service, verification_service
+from app import assignment_service, funding_service, verification_service
 from app.database import Base, get_db
 from app.github_client import GitHubClient
 from app.main import app
@@ -281,6 +281,7 @@ def stellar(monkeypatch: pytest.MonkeyPatch) -> FakeStellar:
 
     monkeypatch.setattr(verification_service, "get_stellar_client", fake.get_client)
     monkeypatch.setattr(funding_service, "get_stellar_client", fake.get_client)
+    monkeypatch.setattr(assignment_service, "get_stellar_client", fake.get_client)
 
     return fake
 

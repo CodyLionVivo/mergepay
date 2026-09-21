@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { AlertTriangle, Info, Loader, RotateCcw, ShieldCheck, Wallet } from 'lucide-react'
 import { ApiError, confirmBountyFunding } from '../api/client'
 import { fundingConfigurationProblem } from '../stellar/config'
-import { FundingError, fundBounty } from '../stellar/escrow'
-import type { FundingPhase } from '../stellar/escrow'
+import { EscrowError, fundBounty } from '../stellar/escrow'
+import type { TransactionPhase } from '../stellar/escrow'
 import { FreighterError } from '../stellar/freighter'
 import {
   clearPendingFundingHash,
@@ -12,9 +12,9 @@ import {
 } from '../stellar/fundingStorage'
 import { useWallet } from '../stellar/walletContext'
 import type { Bounty } from '../types/bounty'
-import './FundingPanel.css'
+import './ActionPanel.css'
 
-type Step = 'idle' | FundingPhase | 'syncing'
+type Step = 'idle' | TransactionPhase | 'syncing'
 
 const STEP_LABELS: Record<Exclude<Step, 'idle'>, string> = {
   preparing: 'Preparing transaction...',
@@ -53,7 +53,7 @@ function recoverSubmitted(bountyId: number): SubmittedTransaction | null {
 }
 
 function describe(error: unknown): string {
-  if (error instanceof ApiError || error instanceof FundingError || error instanceof FreighterError) {
+  if (error instanceof ApiError || error instanceof EscrowError || error instanceof FreighterError) {
     return error.message
   }
 
@@ -122,7 +122,7 @@ export function FundingPanel({ bounty, onFunded }: FundingPanelProps) {
       })
     } catch (caught) {
       if (sent.hash !== null) {
-        if (caught instanceof FundingError && caught.transactionHash === null) {
+        if (caught instanceof EscrowError && caught.transactionHash === null) {
           // FAILED definitivo: no se movio ningun fondo y reintentar es
           // seguro, asi que no queda nada que recuperar.
           clearPendingFundingHash(bounty.id)
@@ -145,11 +145,11 @@ export function FundingPanel({ bounty, onFunded }: FundingPanelProps) {
   }
 
   return (
-    <section className="funding-panel" aria-labelledby="funding-title">
-      <div className="funding-panel__head">
+    <section className="action-panel" aria-labelledby="funding-title">
+      <div className="action-panel__head">
         <Info size={18} aria-hidden="true" />
         <div>
-          <h2 className="funding-panel__title" id="funding-title">
+          <h2 className="action-panel__title" id="funding-title">
             Draft task
           </h2>
           <p>
@@ -159,7 +159,7 @@ export function FundingPanel({ bounty, onFunded }: FundingPanelProps) {
         </div>
       </div>
 
-      <p className="funding-panel__network">
+      <p className="action-panel__network">
         <AlertTriangle size={14} aria-hidden="true" />
         Stellar Testnet — no real funds
       </p>
@@ -172,7 +172,7 @@ export function FundingPanel({ bounty, onFunded }: FundingPanelProps) {
           onRetry={() => void confirmWithMergePay(submitted)}
         />
       ) : (
-        <div className="funding-panel__action">
+        <div className="action-panel__action">
           <FundingAction
             configurationProblem={configurationProblem}
             busy={busy}
@@ -185,7 +185,7 @@ export function FundingPanel({ bounty, onFunded }: FundingPanelProps) {
       )}
 
       {error !== null ? (
-        <p className="funding-panel__error" role="alert">
+        <p className="action-panel__error" role="alert">
           <AlertTriangle size={16} aria-hidden="true" />
           {error}
         </p>
@@ -225,7 +225,7 @@ function FundingAction({
         <button type="button" className="button button--primary" disabled>
           Secure reward
         </button>
-        <span className="funding-panel__hint">
+        <span className="action-panel__hint">
           Funding is disabled: {configurationProblem}
         </span>
       </>
@@ -257,7 +257,7 @@ function FundingAction({
           <RotateCcw size={16} aria-hidden="true" />
           Check network again
         </button>
-        <span className="funding-panel__hint funding-panel__hint--warning">
+        <span className="action-panel__hint action-panel__hint--warning">
           Switch Freighter to Testnet
         </span>
       </>
@@ -280,7 +280,7 @@ function FundingAction({
           <RotateCcw size={16} aria-hidden="true" />
           Check for Freighter
         </button>
-        <span className="funding-panel__hint">
+        <span className="action-panel__hint">
           Install the Freighter browser extension to secure the reward.
         </span>
       </>
@@ -294,7 +294,7 @@ function FundingAction({
         Connect wallet to secure reward
       </button>
       {wallet.status === 'error' && wallet.error !== null ? (
-        <span className="funding-panel__hint">{wallet.error}</span>
+        <span className="action-panel__hint">{wallet.error}</span>
       ) : null}
     </>
   )
@@ -310,14 +310,14 @@ interface SubmittedStateProps {
 /** La transaccion ya esta en Stellar: solo queda confirmarla con MergePay. */
 function SubmittedState({ transaction, busy, step, onRetry }: SubmittedStateProps) {
   return (
-    <div className="funding-panel__submitted">
-      <p className="funding-panel__submitted-text">
+    <div className="action-panel__submitted">
+      <p className="action-panel__submitted-text">
         {SUBMITTED_MESSAGES[transaction.origin]}
       </p>
-      <p className="funding-panel__hint">
+      <p className="action-panel__hint">
         Transaction <code title={transaction.hash}>{transaction.hash}</code>
       </p>
-      <div className="funding-panel__action">
+      <div className="action-panel__action">
         <button
           type="button"
           className="button button--primary"

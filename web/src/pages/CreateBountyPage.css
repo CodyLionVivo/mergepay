@@ -18,41 +18,6 @@
   padding: 0;
 }
 
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 18px;
-}
-
-.field label {
-  color: var(--text-primary);
-  font-size: 0.875rem;
-  font-weight: 550;
-}
-
-.field input,
-.field textarea {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  background-color: var(--bg);
-  color: var(--text-primary);
-  font: inherit;
-  resize: vertical;
-}
-
-.field input::placeholder,
-.field textarea::placeholder {
-  color: #6b7789;
-}
-
-.field input:hover,
-.field textarea:hover {
-  border-color: var(--text-secondary);
-}
-
 .field-row {
   display: grid;
   gap: 16px;
@@ -79,21 +44,6 @@
 }
 
 /* Validacion y criterios dinamicos */
-
-.field__hint {
-  color: var(--text-secondary);
-  font-size: 0.8125rem;
-}
-
-.field__error {
-  color: var(--danger);
-  font-size: 0.8125rem;
-}
-
-.field input[aria-invalid='true'],
-.field textarea[aria-invalid='true'] {
-  border-color: var(--danger);
-}
 
 .criterion-row {
   display: flex;

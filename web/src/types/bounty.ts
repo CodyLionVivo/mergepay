@@ -54,3 +54,15 @@ export interface BountyCreate {
   deadline_unix: number
   criteria: CriterionCreate[]
 }
+
+export interface Submission {
+  id: number
+  bounty_id: number
+  pull_request_url: string
+  pull_request_number: number
+  author: string | null
+  head_ref: string
+  head_sha: string
+  created_at: string
+  updated_at: string
+}

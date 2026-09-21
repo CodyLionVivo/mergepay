@@ -1,3 +1,5 @@
+import base64
+import binascii
 from datetime import datetime
 from enum import StrEnum
 from typing import Annotated
@@ -165,6 +167,25 @@ class PullRequestVerificationResult(BaseModel):
 # ─────────────────────────────────────────
 
 
+TransactionHash = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{64}$")]
+
+# Letras, numeros y guion, de 1 a 39 caracteres. Solo formato: MergePay no
+# comprueba que la cuenta exista ni que pertenezca a quien la declara.
+GitHubUsername = Annotated[
+    str,
+    StringConstraints(min_length=1, max_length=39, pattern=r"^[A-Za-z0-9-]+$"),
+]
+
+
+WALLET_SIGNATURE_BYTES = 64
+
+
+def _normalize_transaction_hash(value: object) -> object:
+    # Pydantic evalua `pattern` antes que strip/to_lower, asi que la
+    # normalizacion tiene que ir en un validador previo.
+    return value.strip().lower() if isinstance(value, str) else value
+
+
 class FundingConfirmationCreate(BaseModel):
     """Solo el hash: wallet, montos y status los decide el backend on-chain.
 
@@ -174,14 +195,57 @@ class FundingConfirmationCreate(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    transaction_hash: Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{64}$")]
+    transaction_hash: TransactionHash
 
     @field_validator("transaction_hash", mode="before")
     @classmethod
     def _normalize_hash(cls, value: object) -> object:
-        # Pydantic evalua `pattern` antes que strip/to_lower, asi que la
-        # normalizacion tiene que ir en un validador previo.
-        return value.strip().lower() if isinstance(value, str) else value
+        return _normalize_transaction_hash(value)
+
+
+class AssignmentConfirmationCreate(BaseModel):
+    """Hash de la aceptacion on-chain, el GitHub declarado y la prueba de wallet.
+
+    La wallet del developer nunca viaja aqui: se lee del contrato. La firma
+    SEP-53 prueba que quien envia el GitHub controla esa wallet; sin ella
+    cualquiera podria reclamar la task con el hash publico de la aceptacion.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    transaction_hash: TransactionHash
+    developer_github: GitHubUsername
+    wallet_signature: str
+
+    @field_validator("wallet_signature", mode="before")
+    @classmethod
+    def _strip_signature(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+    @field_validator("wallet_signature")
+    @classmethod
+    def _check_signature(cls, value: str) -> str:
+        # Solo el formato: base64 estandar de una firma ed25519. Si firma lo que
+        # debe se comprueba despues, contra la wallet on-chain.
+        try:
+            decoded = base64.b64decode(value, validate=True)
+        except binascii.Error as error:
+            raise ValueError("wallet_signature must be valid base64") from error
+
+        if len(decoded) != WALLET_SIGNATURE_BYTES:
+            raise ValueError("wallet_signature must decode to exactly 64 bytes")
+
+        return value
+
+    @field_validator("transaction_hash", mode="before")
+    @classmethod
+    def _normalize_hash(cls, value: object) -> object:
+        return _normalize_transaction_hash(value)
+
+    @field_validator("developer_github", mode="before")
+    @classmethod
+    def _strip_username(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
 
 
 class SubmissionCreate(BaseModel):

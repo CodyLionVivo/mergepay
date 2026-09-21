@@ -12,8 +12,10 @@ import {
   isAllowed,
   isConnected,
   requestAccess,
+  signMessage,
   signTransaction,
 } from '@stellar/freighter-api'
+import { normalizeSignatureBase64 } from '../utils/base64'
 
 export class FreighterError extends Error {
   constructor(message: string) {
@@ -94,6 +96,41 @@ export async function readFreighterNetwork(): Promise<FreighterNetwork> {
   }
 
   return { network: result.network, networkPassphrase: result.networkPassphrase }
+}
+
+export interface SignedMessage {
+  /** Firma SEP-53 en base64 estandar: 64 bytes. */
+  signature: string
+  signerAddress: string
+}
+
+/**
+ * Firma un mensaje con SEP-53. No es una transaccion: no se envia nada a la
+ * red ni cuesta fees; solo prueba que la address controla su clave.
+ */
+export async function signMessageWithFreighter(
+  message: string,
+  address: string,
+  networkPassphrase: string,
+): Promise<SignedMessage> {
+  const result = await signMessage(message, { networkPassphrase, address })
+  const errorText = errorMessage(result, 'Freighter could not sign the message.')
+
+  if (errorText !== null) {
+    throw new FreighterError(errorText)
+  }
+
+  if (result.signedMessage === null || result.signedMessage === undefined) {
+    throw new FreighterError('Freighter returned no signature.')
+  }
+
+  const signature = normalizeSignatureBase64(result.signedMessage)
+
+  if (signature === null) {
+    throw new FreighterError('Freighter returned a signature in an unexpected format.')
+  }
+
+  return { signature, signerAddress: result.signerAddress }
 }
 
 export async function signWithFreighter(
