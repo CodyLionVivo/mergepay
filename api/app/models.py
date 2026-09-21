@@ -20,6 +20,7 @@ class BountyStatus(StrEnum):
     OPEN_FUNDED = "OPEN_FUNDED"
     ASSIGNED = "ASSIGNED"
     SUBMITTED = "SUBMITTED"
+    VERIFYING = "VERIFYING"
     NEEDS_CHANGES = "NEEDS_CHANGES"
     ELIGIBLE = "ELIGIBLE"
     PAID = "PAID"
@@ -81,6 +82,13 @@ class Bounty(Base):
         order_by="Criterion.position",
     )
 
+    # Uno a uno: la unicidad la garantiza el UNIQUE de Submission.bounty_id.
+    submission: Mapped["Submission | None"] = relationship(
+        back_populates="bounty",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )
+
 
 class Criterion(Base):
     __tablename__ = "criteria"
@@ -96,3 +104,67 @@ class Criterion(Base):
     position: Mapped[int] = mapped_column(Integer, nullable=False)
 
     bounty: Mapped["Bounty"] = relationship(back_populates="criteria")
+
+
+class Submission(Base):
+    """El pull request que un developer registro contra un bounty."""
+
+    __tablename__ = "submissions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+
+    bounty_id: Mapped[int] = mapped_column(
+        ForeignKey("bounties.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+    )
+
+    pull_request_url: Mapped[str] = mapped_column(String, nullable=False)
+    pull_request_number: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    author: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    # No esta congelado: cada verificacion vuelve a inspeccionar el PR y lo
+    # actualiza si el developer hizo push.
+    head_ref: Mapped[str] = mapped_column(String, nullable=False)
+    head_sha: Mapped[str] = mapped_column(String, nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utcnow
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utcnow, onupdate=utcnow
+    )
+
+    bounty: Mapped["Bounty"] = relationship(back_populates="submission")
+
+    verifications: Mapped[list["Verification"]] = relationship(
+        back_populates="submission",
+        cascade="all, delete-orphan",
+        order_by="Verification.id",
+    )
+
+
+class Verification(Base):
+    """Resultado de una pasada de verificacion. Se conserva el historial."""
+
+    __tablename__ = "verifications"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+
+    submission_id: Mapped[int] = mapped_column(
+        ForeignKey("submissions.id", ondelete="CASCADE"), nullable=False
+    )
+
+    head_sha: Mapped[str] = mapped_column(String, nullable=False)
+    status: Mapped[str] = mapped_column(String, nullable=False)
+    eligible_for_payout: Mapped[bool] = mapped_column(Boolean, nullable=False)
+
+    # PullRequestVerificationResult serializado, nunca el JSON de GitHub.
+    result_json: Mapped[str] = mapped_column(Text, nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utcnow
+    )
+
+    submission: Mapped["Submission"] = relationship(back_populates="verifications")

@@ -2,11 +2,31 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app import verification_service
 from app.database import get_db
-from app.models import Bounty, BountyStatus, Criterion
-from app.schemas import BountyCreate, BountyResponse
+from app.github_client import GitHubClient
+from app.models import Bounty, BountyStatus, Criterion, Submission
+from app.schemas import (
+    BountyCreate,
+    BountyResponse,
+    SubmissionCreate,
+    SubmissionResponse,
+    VerificationRecordResponse,
+)
+from app.verification_service import get_github_client
 
 router = APIRouter(prefix="/bounties", tags=["bounties"])
+
+
+def _get_bounty_or_404(db: Session, bounty_id: int) -> Bounty:
+    bounty = db.get(Bounty, bounty_id)
+
+    if bounty is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Bounty not found"
+        )
+
+    return bounty
 
 
 @router.post("", response_model=BountyResponse, status_code=status.HTTP_201_CREATED)
@@ -49,11 +69,51 @@ def list_bounties(db: Session = Depends(get_db)) -> list[Bounty]:
 
 @router.get("/{bounty_id}", response_model=BountyResponse)
 def get_bounty(bounty_id: int, db: Session = Depends(get_db)) -> Bounty:
-    bounty = db.get(Bounty, bounty_id)
+    return _get_bounty_or_404(db, bounty_id)
 
-    if bounty is None:
+
+@router.post(
+    "/{bounty_id}/submission",
+    response_model=SubmissionResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_submission(
+    bounty_id: int,
+    payload: SubmissionCreate,
+    db: Session = Depends(get_db),
+    github: GitHubClient = Depends(get_github_client),
+) -> Submission:
+    bounty = _get_bounty_or_404(db, bounty_id)
+
+    return verification_service.register_submission(
+        db, bounty, payload.pull_request_url, github
+    )
+
+
+@router.post("/{bounty_id}/verify", response_model=VerificationRecordResponse)
+def verify_bounty(
+    bounty_id: int,
+    db: Session = Depends(get_db),
+    github: GitHubClient = Depends(get_github_client),
+) -> VerificationRecordResponse:
+    bounty = _get_bounty_or_404(db, bounty_id)
+
+    verification = verification_service.run_verification(db, bounty, github)
+
+    return verification_service.to_verification_response(verification)
+
+
+@router.get("/{bounty_id}/verification", response_model=VerificationRecordResponse)
+def get_latest_verification(
+    bounty_id: int, db: Session = Depends(get_db)
+) -> VerificationRecordResponse:
+    bounty = _get_bounty_or_404(db, bounty_id)
+
+    verification = verification_service.get_latest_verification(db, bounty)
+
+    if verification is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Bounty not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Verification not found"
         )
 
-    return bounty
+    return verification_service.to_verification_response(verification)

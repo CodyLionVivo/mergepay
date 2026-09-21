@@ -158,3 +158,41 @@ class PullRequestVerificationResult(BaseModel):
     reasons: list[str]
 
     head_sha: str
+
+
+# ─────────────────────────────────────────
+# Submissions y verificaciones persistidas.
+# ─────────────────────────────────────────
+
+
+class SubmissionCreate(BaseModel):
+    pull_request_url: NonEmptyStr
+
+
+class SubmissionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    bounty_id: int
+
+    pull_request_url: str
+    pull_request_number: int
+
+    author: str | None
+
+    head_ref: str
+    head_sha: str
+
+    created_at: datetime
+    updated_at: datetime
+
+
+class VerificationRecordResponse(BaseModel):
+    id: int
+    bounty_id: int
+    submission_id: int
+
+    created_at: datetime
+
+    # El cliente recibe el resultado tipado, nunca el result_json en crudo.
+    result: PullRequestVerificationResult
