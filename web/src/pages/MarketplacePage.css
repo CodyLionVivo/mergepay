@@ -107,3 +107,42 @@
 .task-card__reward {
   color: var(--success);
 }
+
+/* Estados de carga, error y vacio */
+
+.task-card--skeleton {
+  gap: 14px;
+  cursor: default;
+}
+
+.task-card--skeleton .task-card__meta {
+  display: block;
+}
+
+.tasks__state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-top: 20px;
+  padding: 44px 24px;
+  text-align: center;
+}
+
+.tasks__state-icon--error {
+  color: var(--danger);
+}
+
+.tasks__state-title {
+  font-size: 1.0625rem;
+}
+
+.tasks__state-text {
+  max-width: 44ch;
+  color: var(--text-secondary);
+  font-size: 0.9375rem;
+}
+
+.tasks__state .button {
+  margin-top: 6px;
+}
