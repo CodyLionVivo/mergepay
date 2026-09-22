@@ -5,7 +5,12 @@
  * quitando ese prefijo. En produccion se apunta con VITE_API_BASE_URL.
  */
 
-import type { Bounty, BountyCreate, Submission } from '../types/bounty'
+import type {
+  Bounty,
+  BountyCreate,
+  Submission,
+  VerificationRecord,
+} from '../types/bounty'
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api'
 
@@ -20,6 +25,15 @@ export class ApiError extends Error {
     this.status = status
     this.reasons = reasons
   }
+}
+
+/** Texto para mostrar inline: el del backend, o uno generico si no hubo respuesta. */
+export function requestErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) {
+    return error.message
+  }
+
+  return 'Unable to reach the MergePay API. Check your connection and try again.'
 }
 
 export interface HealthResponse {
@@ -162,4 +176,44 @@ export function createSubmission(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ pull_request_url: pullRequestUrl }),
   })
+}
+
+/** La submission guardada. El backend no consulta GitHub para responder. */
+export function getSubmission(bountyId: number, signal?: AbortSignal): Promise<Submission> {
+  return request<Submission>(`/bounties/${bountyId}/submission`, { signal })
+}
+
+/** La ultima verificacion. Da 404 mientras no se haya ejecutado ninguna. */
+export function getLatestVerification(
+  bountyId: number,
+  signal?: AbortSignal,
+): Promise<VerificationRecord> {
+  return request<VerificationRecord>(`/bounties/${bountyId}/verification`, { signal })
+}
+
+/**
+ * Igual que getLatestVerification, pero el 404 devuelve null: que aun no haya
+ * verificaciones es el estado normal de un PR recien registrado.
+ */
+export async function findLatestVerification(
+  bountyId: number,
+  signal?: AbortSignal,
+): Promise<VerificationRecord | null> {
+  try {
+    return await getLatestVerification(bountyId, signal)
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      return null
+    }
+
+    throw error
+  }
+}
+
+/**
+ * Pide al backend que vuelva a inspeccionar el PR y sus required checks.
+ * Sin body: todo lo decide el backend, incluido el payout si sale PASS.
+ */
+export function verifyBounty(bountyId: number): Promise<VerificationRecord> {
+  return request<VerificationRecord>(`/bounties/${bountyId}/verify`, { method: 'POST' })
 }

@@ -66,3 +66,43 @@ export interface Submission {
   created_at: string
   updated_at: string
 }
+
+/** Un required check tal como lo evaluo el backend. */
+export interface RequiredCheckResult {
+  name: string
+  /** Status del check run en GitHub, o "missing" si no existe. */
+  status: string
+  conclusion: string | null
+  passed: boolean
+}
+
+export type VerificationStatus = 'PASS' | 'FAIL' | 'PENDING'
+
+export interface PullRequestVerificationResult {
+  status: VerificationStatus
+  eligible_for_payout: boolean
+
+  repository_valid: boolean
+  base_branch_valid: boolean
+  base_sha_valid: boolean
+  developer_valid: boolean
+  pr_open: boolean
+  pr_not_draft: boolean
+  protected_files_valid: boolean
+
+  protected_files_modified: string[]
+
+  checks: RequiredCheckResult[]
+
+  reasons: string[]
+
+  head_sha: string
+}
+
+export interface VerificationRecord {
+  id: number
+  bounty_id: number
+  submission_id: number
+  created_at: string
+  result: PullRequestVerificationResult
+}

@@ -125,6 +125,19 @@ def create_submission(
     )
 
 
+@router.get("/{bounty_id}/submission", response_model=SubmissionResponse)
+def get_submission(bounty_id: int, db: Session = Depends(get_db)) -> Submission:
+    """La submission tal como esta guardada: no consulta GitHub ni escribe."""
+    bounty = _get_bounty_or_404(db, bounty_id)
+
+    if bounty.submission is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Submission not found"
+        )
+
+    return bounty.submission
+
+
 @router.post("/{bounty_id}/verify", response_model=VerificationRecordResponse)
 def verify_bounty(
     bounty_id: int,

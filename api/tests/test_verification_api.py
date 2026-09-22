@@ -1408,3 +1408,151 @@ def test_stellar_rpc_transport_error_during_payout_returns_502(
     with session_factory() as db:
         verification = db.scalars(select(Verification)).one()
         assert verification.status == VerificationStatus.PASS
+
+
+# ─────────────────────────────────────────
+# GET /submission: lectura de lo guardado.
+# ─────────────────────────────────────────
+
+
+def get_submission(client: TestClient, bounty_id: int):
+    return client.get(f"/bounties/{bounty_id}/submission")
+
+
+def stored_rows(
+    session_factory: sessionmaker[Session], bounty_id: int
+) -> tuple[tuple[Any, ...], tuple[Any, ...] | None, int]:
+    """Bounty y submission columna a columna, mas el numero de Verification."""
+    with session_factory() as db:
+        bounty = db.get(Bounty, bounty_id)
+        assert bounty is not None
+
+        bounty_row = tuple(
+            getattr(bounty, column.key) for column in Bounty.__table__.columns
+        )
+
+        submission = bounty.submission
+        submission_row = (
+            None
+            if submission is None
+            else tuple(
+                getattr(submission, column.key)
+                for column in Submission.__table__.columns
+            )
+        )
+
+    return bounty_row, submission_row, count(session_factory, Verification)
+
+
+def test_get_submission_on_unknown_bounty_returns_404(client: TestClient) -> None:
+    response = get_submission(client, 999)
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Bounty not found"}
+
+
+def test_get_submission_without_submission_returns_404(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    bounty_id = create_bounty(session_factory)
+
+    response = get_submission(client, bounty_id)
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Submission not found"}
+
+
+def test_get_submission_returns_200_with_the_stored_submission(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    bounty_id = create_bounty(session_factory)
+
+    created = submit(client, bounty_id).json()
+
+    response = get_submission(client, bounty_id)
+
+    assert response.status_code == 200
+    assert response.json() == created
+    assert response.json()["bounty_id"] == bounty_id
+
+
+@pytest.mark.parametrize(
+    ("field", "expected"),
+    [
+        ("pull_request_url", PULL_REQUEST_URL),
+        ("pull_request_number", PULL_NUMBER),
+        ("author", DEVELOPER),
+        ("head_ref", "feat/example"),
+        ("head_sha", HEAD_SHA),
+    ],
+)
+def test_get_submission_returns_field(
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    field: str,
+    expected: Any,
+) -> None:
+    bounty_id = submitted_bounty(client, session_factory)
+
+    assert get_submission(client, bounty_id).json()[field] == expected
+
+
+def test_get_submission_does_not_modify_the_database(
+    client: TestClient, session_factory: sessionmaker[Session], github: FakeGitHub
+) -> None:
+    bounty_id = submitted_bounty(client, session_factory)
+
+    # Una verificacion FAIL deja filas en las tres tablas y el bounty abierto.
+    github.check_runs = failing_checks()
+    client.post(f"/bounties/{bounty_id}/verify")
+
+    before = stored_rows(session_factory, bounty_id)
+
+    # GitHub cambia por debajo: un GET no debe reflejarlo ni persistirlo.
+    github.set_head_sha(NEW_HEAD_SHA)
+
+    for _ in range(3):
+        assert get_submission(client, bounty_id).status_code == 200
+
+    assert stored_rows(session_factory, bounty_id) == before
+    assert bounty_status(session_factory, bounty_id) == BountyStatus.NEEDS_CHANGES
+
+
+def test_get_submission_never_calls_github_or_stellar(
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    github: FakeGitHub,
+    stellar: FakeStellar,
+) -> None:
+    bounty_id = submitted_bounty(client, session_factory)
+
+    del github.requests[:]
+
+    response = get_submission(client, bounty_id)
+
+    assert response.status_code == 200
+    assert response.json()["head_sha"] == HEAD_SHA
+
+    # Ni una peticion al transporte de GitHub, ni construccion del cliente Stellar.
+    assert github.requests == []
+    assert stellar.builds == 0
+
+
+def test_get_submission_reflects_the_head_of_the_last_verification(
+    client: TestClient, session_factory: sessionmaker[Session], github: FakeGitHub
+) -> None:
+    bounty_id = submitted_bounty(client, session_factory)
+
+    github.check_runs = failing_checks()
+    client.post(f"/bounties/{bounty_id}/verify")
+
+    # Push nuevo y verificacion PASS: el bounty acaba en PAID.
+    github.set_head_sha(NEW_HEAD_SHA)
+    client.post(f"/bounties/{bounty_id}/verify")
+
+    assert bounty_status(session_factory, bounty_id) == BountyStatus.PAID
+
+    response = get_submission(client, bounty_id)
+
+    assert response.status_code == 200
+    assert response.json()["head_sha"] == NEW_HEAD_SHA

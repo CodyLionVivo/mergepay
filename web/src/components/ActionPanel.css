@@ -87,10 +87,23 @@
   font-size: 0.9375rem;
 }
 
-.action-panel__error svg {
+.action-panel__error > svg {
   flex-shrink: 0;
   margin-top: 2px;
   color: var(--danger);
+}
+
+.action-panel__error-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Enlace externo, por ejemplo al PR en GitHub. */
+.action-panel__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }
 
 /* Datos clave del paso actual: recompensa, deadline, wallet asignada... */

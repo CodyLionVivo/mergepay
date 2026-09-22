@@ -8,6 +8,8 @@ import { FundingPanel } from '../components/FundingPanel'
 import { PageHeader } from '../components/PageHeader'
 import { SubmissionPanel } from '../components/SubmissionPanel'
 import { SubmissionSummary } from '../components/SubmissionSummary'
+import { VerificationPanel } from '../components/VerificationPanel'
+import { useSubmittedWork } from '../hooks/useSubmittedWork'
 import { abbreviateAddress } from '../stellar/walletContext'
 import type { Bounty, Submission } from '../types/bounty'
 import { abbreviateHash, formatUnixSeconds } from '../utils/format'
@@ -121,10 +123,6 @@ export function BountyDetailPage() {
   const [result, setResult] = useState<LoadResult | null>(null)
   const [reloadToken, setReloadToken] = useState(0)
 
-  // La submission recien creada en esta visita. No hay endpoint para
-  // leerla despues, asi que es lo unico que da el head SHA en el resumen.
-  const [lastSubmission, setLastSubmission] = useState<Submission | null>(null)
-
   // Igual que en el marketplace: "loading" se deriva en render comparando el
   // resultado guardado con la task y el intento actuales.
   const settled =
@@ -135,6 +133,13 @@ export function BountyDetailPage() {
   const state: LoadState = settled ? result.state : 'loading'
   const bounty = settled ? result.bounty : null
   const errorDetail = settled ? result.errorDetail : ''
+
+  // Con el PR registrado, submission y ultima verificacion se leen del
+  // backend: un refresh reconstruye el estado sin depender de esta visita.
+  const work = useSubmittedWork(
+    bountyId,
+    bounty !== null && SUBMITTED_STATUSES.has(bounty.status),
+  )
 
   useEffect(() => {
     if (bountyId === null) {
@@ -260,10 +265,11 @@ export function BountyDetailPage() {
     )
   }
 
-  /** POST /submission devuelve la submission, no el bounty: hay que releerlo. */
+  /**
+   * POST /submission devuelve la submission, no el bounty: hay que releerlo.
+   * Con el bounty ya en SUBMITTED, la submission se carga de GET /submission.
+   */
   async function handleSubmitted(submission: Submission) {
-    setLastSubmission(submission)
-
     try {
       replaceBounty(await getBounty(submission.bounty_id))
     } catch {
@@ -294,10 +300,21 @@ export function BountyDetailPage() {
       ) : null}
 
       {SUBMITTED_STATUSES.has(bounty.status) ? (
-        <SubmissionSummary
-          bounty={bounty}
-          submission={lastSubmission?.bounty_id === bounty.id ? lastSubmission : null}
-        />
+        <>
+          <SubmissionSummary
+            bounty={bounty}
+            submission={work.submission}
+            onRetry={work.reload}
+          />
+          <VerificationPanel
+            bounty={bounty}
+            latestVerification={work.verification}
+            onBountyUpdated={replaceBounty}
+            onVerificationUpdated={work.setVerification}
+            onSubmissionUpdated={work.setSubmission}
+            onReload={work.reload}
+          />
+        </>
       ) : null}
 
       {bounty.create_tx_hash !== null && bounty.release_tx_hash === null ? (
@@ -401,11 +418,16 @@ export function BountyDetailPage() {
           {bounty.release_tx_hash === null ? (
             <p className="detail-empty">No payout transaction yet.</p>
           ) : (
-            <p className="detail-body">
-              <code title={bounty.release_tx_hash}>
-                {abbreviateHash(bounty.release_tx_hash)}
-              </code>
-            </p>
+            <dl className="detail-list">
+              <div>
+                <dt>Payout transaction</dt>
+                <dd>
+                  <code title={bounty.release_tx_hash}>
+                    {abbreviateHash(bounty.release_tx_hash)}
+                  </code>
+                </dd>
+              </div>
+            </dl>
           )}
         </section>
       </div>
