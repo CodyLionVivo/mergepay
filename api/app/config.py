@@ -9,6 +9,9 @@ class Settings(BaseSettings):
     app_name: str = "MergePay API"
     database_url: str = "sqlite:///./mergepay.db"
 
+    # Origenes del navegador que pueden llamar a la API, separados por comas.
+    cors_allowed_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+
     # Opcional: sin token se consultan repositorios publicos con el rate limit
     # anonimo de GitHub. Nunca se registra ni se serializa.
     github_token: str | None = None
@@ -20,6 +23,31 @@ class Settings(BaseSettings):
     # exigen al construir un StellarClient desde settings.
     stellar_contract_id: str | None = None
     stellar_verifier_secret: str | None = None
+
+    @property
+    def cors_origins(self) -> list[str]:
+        """La lista limpia: sin espacios, sin vacios y sin repetidos.
+
+        "*" no vale. MergePay sirve tasks privadas con Bearer, asi que los
+        origenes se declaran uno a uno; si aparece, la app falla al arrancar.
+        """
+        origins: list[str] = []
+
+        for entry in self.cors_allowed_origins.split(","):
+            origin = entry.strip()
+
+            if not origin:
+                continue
+
+            if origin == "*":
+                raise ValueError(
+                    "cors_allowed_origins must list explicit origins, not '*'"
+                )
+
+            if origin not in origins:
+                origins.append(origin)
+
+        return origins
 
 
 settings = Settings()

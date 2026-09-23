@@ -13,7 +13,17 @@ import type {
   VerificationRecord,
 } from '../types/bounty'
 
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api'
+/**
+ * Quita solo las barras finales, para que al concatenar la ruta no salga un
+ * doble slash. El resto de la URL se respeta tal cual.
+ */
+export function normalizeApiBaseUrl(value: string): string {
+  return value.replace(/\/+$/, '')
+}
+
+export const API_BASE_URL = normalizeApiBaseUrl(
+  import.meta.env.VITE_API_BASE_URL ?? '/api',
+)
 
 /**
  * Token de la sesion actual. Lo mantiene AuthProvider; aqui solo se usa para
