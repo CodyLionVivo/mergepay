@@ -1,3 +1,5 @@
+import base64
+import hashlib
 from collections.abc import Generator
 from typing import Any
 
@@ -7,6 +9,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
+from stellar_sdk import Keypair
 from stellar_sdk.exceptions import ConnectionError as RpcConnectionError
 
 from app import (
@@ -350,3 +353,55 @@ def client(
     yield TestClient(app)
 
     app.dependency_overrides.clear()
+
+
+# ─────────────────────────────────────────
+# Sesiones autenticadas para los tests.
+# ─────────────────────────────────────────
+
+SEP53_PREFIX = b"Stellar Signed Message:\n"
+
+
+def sep53_signature(keypair: Keypair, message: str) -> str:
+    """Firma SEP-53 en base64, igual que la haria Freighter."""
+    digest = hashlib.sha256(SEP53_PREFIX + message.encode("utf-8")).digest()
+
+    return base64.b64encode(keypair.sign(digest)).decode("ascii")
+
+
+def authenticate(client: TestClient, keypair: Keypair) -> str:
+    """Abre una sesion real pasando por /auth/challenge y /auth/verify.
+
+    Sin atajos: nada de saltarse la autenticacion con flags ni monkeypatch.
+    Devuelve el access token en crudo, que solo existe aqui y en la respuesta.
+    """
+    challenge = client.post("/auth/challenge", json={"wallet": keypair.public_key})
+
+    assert challenge.status_code == 200
+
+    issued = challenge.json()
+
+    verified = client.post(
+        "/auth/verify",
+        json={
+            "challenge_id": issued["challenge_id"],
+            "wallet_signature": sep53_signature(keypair, issued["message"]),
+        },
+    )
+
+    assert verified.status_code == 200
+
+    return verified.json()["access_token"]
+
+
+def auth_headers(client: TestClient, keypair: Keypair) -> dict[str, str]:
+    return {"Authorization": f"Bearer {authenticate(client, keypair)}"}
+
+
+def sign_in(client: TestClient, keypair: Keypair) -> str:
+    """Deja el TestClient autenticado como esa wallet para el resto del test."""
+    token = authenticate(client, keypair)
+
+    client.headers["Authorization"] = f"Bearer {token}"
+
+    return token

@@ -22,7 +22,10 @@ import {
   requestErrorMessage,
   verifyBounty,
 } from '../api/client'
+import { useAuth } from '../auth/authContext'
+import { verificationIssue } from '../auth/taskAccess'
 import type { Loadable } from '../hooks/useSubmittedWork'
+import { AuthPrompt } from './AuthPrompt'
 import { abbreviateAddress } from '../stellar/walletContext'
 import type {
   Bounty,
@@ -94,6 +97,8 @@ export function VerificationPanel({
   onSubmissionUpdated,
   onReload,
 }: VerificationPanelProps) {
+  const auth = useAuth()
+
   const [running, setRunning] = useState<Running>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -229,6 +234,17 @@ export function VerificationPanel({
         ? 'Retrying settlement...'
         : 'Checking GitHub...'
 
+  // Los resultados siguen siendo publicos; solo la accion queda restringida.
+  const accessIssue = verificationIssue(auth, bounty)
+
+  function gatedAction(children: ReactNode) {
+    if (accessIssue !== null) {
+      return <AuthPrompt message={accessIssue.message} hint={accessIssue.hint} />
+    }
+
+    return <div className="action-panel__action">{children}</div>
+  }
+
   function verifyButton(label: string, Icon: LucideIcon, primary: boolean) {
     return (
       <button
@@ -341,12 +357,14 @@ export function VerificationPanel({
           All agreed checks passed, but the Stellar payout has not been confirmed.
         </p>
 
-        <div className="action-panel__action">
-          {verifyButton('Retry settlement', RotateCcw, true)}
-          <span className="action-panel__hint">
-            MergePay checks the pull request again before retrying the payout.
-          </span>
-        </div>
+        {gatedAction(
+          <>
+            {verifyButton('Retry settlement', RotateCcw, true)}
+            <span className="action-panel__hint">
+              MergePay checks the pull request again before retrying the payout.
+            </span>
+          </>,
+        )}
 
         {feedback}
         {details}
@@ -362,12 +380,14 @@ export function VerificationPanel({
           passing result releases the secured reward automatically.
         </p>
 
-        <div className="action-panel__action">
-          {verifyButton('Run verification', PlayCircle, true)}
-          <span className="action-panel__hint">
-            No manual payment approval is required after a passing verification.
-          </span>
-        </div>
+        {gatedAction(
+          <>
+            {verifyButton('Run verification', PlayCircle, true)}
+            <span className="action-panel__hint">
+              No manual payment approval is required after a passing verification.
+            </span>
+          </>,
+        )}
 
         {feedback}
       </PanelFrame>
@@ -424,13 +444,15 @@ export function VerificationPanel({
           </ul>
         ) : null}
 
-        <div className="action-panel__action">
-          {verifyButton('Check again', RotateCcw, true)}
-          <span className="action-panel__hint">
-            Push fixes to the same pull request, then check again. No new submission
-            is needed.
-          </span>
-        </div>
+        {gatedAction(
+          <>
+            {verifyButton('Check again', RotateCcw, true)}
+            <span className="action-panel__hint">
+              Push fixes to the same pull request, then check again. No new
+              submission is needed.
+            </span>
+          </>,
+        )}
 
         {feedback}
         {details}
@@ -444,7 +466,7 @@ export function VerificationPanel({
         One or more required GitHub checks are not complete yet.
       </p>
 
-      <div className="action-panel__action">{verifyButton('Check again', RotateCcw, true)}</div>
+      {gatedAction(verifyButton('Check again', RotateCcw, true))}
 
       {feedback}
       {details}

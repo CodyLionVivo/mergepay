@@ -5,6 +5,8 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
+from stellar_sdk import Keypair
+
 from app.hashing import compute_criteria_hash, compute_evidence_hash
 from app.models import Bounty
 from app.schemas import (
@@ -14,7 +16,17 @@ from app.schemas import (
     VerificationStatus,
 )
 
+from tests.conftest import sign_in
+
 HEX_64 = re.compile(r"[0-9a-f]{64}")
+
+# Crear tasks exige sesion; el hash de criterios no depende de ella.
+CLIENT_KEYPAIR = Keypair.random()
+
+
+@pytest.fixture(autouse=True)
+def authenticated(client: TestClient) -> None:
+    sign_in(client, CLIENT_KEYPAIR)
 
 CRITERIA_HASH = "a" * 64
 

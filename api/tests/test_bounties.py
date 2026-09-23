@@ -1,6 +1,20 @@
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
+from stellar_sdk import Keypair
+
+from app.models import Bounty, BountyStatus
+from tests.conftest import sign_in
+
+# La wallet que crea las tasks de este modulo. POST /bounties exige sesion, y
+# el client del bounty sale de ella.
+CLIENT_KEYPAIR = Keypair.random()
+
+
+@pytest.fixture(autouse=True)
+def authenticated(client: TestClient) -> None:
+    sign_in(client, CLIENT_KEYPAIR)
 
 AMOUNT_STROOPS = 100_000_000
 DEADLINE_UNIX = 1_767_225_600
@@ -93,8 +107,18 @@ def test_criteria_keep_request_order(client: TestClient) -> None:
 # ─────────────────────────────────────────
 
 
-def test_list_bounties_includes_created_bounty(client: TestClient) -> None:
+def test_list_bounties_includes_a_funded_bounty(client: TestClient, session_factory) -> None:
     created = client.post("/bounties", json=payload()).json()
+
+    # El marketplace solo lista tasks financiadas: el DRAFT recien creado
+    # todavia es privado de su client.
+    assert client.get("/bounties").json() == []
+
+    with session_factory() as db:
+        bounty = db.get(Bounty, created["id"])
+        assert bounty is not None
+        bounty.status = BountyStatus.OPEN_FUNDED
+        db.commit()
 
     response = client.get("/bounties")
 

@@ -116,6 +116,7 @@ def confirm_assignment(
     transaction_hash: str,
     developer_github: str,
     wallet_signature: str,
+    authenticated_wallet: str,
 ) -> Bounty:
     """Pasa un bounty OPEN_FUNDED a ASSIGNED tras comprobar el contrato.
 
@@ -128,6 +129,14 @@ def confirm_assignment(
     # sin volver a consultar Stellar. El hash de la aceptacion no se guarda,
     # asi que la comparacion es por el usuario de GitHub.
     if bounty.status == BountyStatus.ASSIGNED:
+        # Idempotente solo para el developer de la task: otra sesion no puede
+        # usar este camino para leer nada ni para reclamarla.
+        if bounty.developer_wallet != authenticated_wallet:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Developer wallet required for this task",
+            )
+
         if (
             bounty.developer_github is not None
             and bounty.developer_github.casefold() == developer_github.casefold()
@@ -149,6 +158,14 @@ def confirm_assignment(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Bounty cannot be assigned in its current state",
+        )
+
+    # El client no puede aceptar su propia task. Se comprueba antes de tocar
+    # Stellar: ni siquiera se construye el cliente.
+    if bounty.client_wallet == authenticated_wallet:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Client wallet cannot accept its own task",
         )
 
     if (
@@ -196,8 +213,15 @@ def confirm_assignment(
             detail="On-chain assignment does not match MergePay task",
         )
 
-    # La firma se verifica contra el developer que dice el contrato, nunca
-    # contra una address que mande el navegador.
+    # Quien acepto on-chain tiene que ser la misma wallet que abrio la sesion.
+    if on_chain.developer != authenticated_wallet:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Authenticated wallet does not match assigned developer",
+        )
+
+    # Ademas de la sesion, la firma SEP-53 ata GitHub a esa wallet: sin ella,
+    # el hash publico de la aceptacion bastaria para fijar otro usuario.
     message = build_assignment_message(
         bounty_id=bounty.id,
         transaction_hash=normalized_hash,

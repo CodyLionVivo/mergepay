@@ -17,6 +17,7 @@ from app.stellar_client import (
 )
 from tests.conftest import (
     BASE_BRANCH,
+    sign_in,
     BRANCH_HEAD_SHA,
     OWNER,
     REPO,
@@ -26,7 +27,9 @@ from tests.conftest import (
     FakeStellar,
 )
 
-CLIENT_WALLET = Keypair.random().public_key
+# Keypair real del client: financia y, ahora, autentica la sesion.
+CLIENT_KEYPAIR = Keypair.random()
+CLIENT_WALLET = CLIENT_KEYPAIR.public_key
 CRITERIA_HASH = "c" * 64
 AMOUNT_STROOPS = 100_000_000
 DEADLINE_UNIX = 1_767_225_600
@@ -92,6 +95,12 @@ def funding_snapshot(
         assert bounty is not None
 
         return {column: getattr(bounty, column) for column in FUNDING_COLUMNS}
+
+
+@pytest.fixture(autouse=True)
+def authenticated(client: TestClient) -> None:
+    """Financiar exige sesion, y tiene que ser la del client on-chain."""
+    sign_in(client, CLIENT_KEYPAIR)
 
 
 @pytest.fixture

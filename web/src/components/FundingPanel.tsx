@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { AlertTriangle, Info, Loader, RotateCcw, ShieldCheck, Wallet } from 'lucide-react'
 import { ApiError, confirmBountyFunding } from '../api/client'
+import { useAuth } from '../auth/authContext'
+import { fundingIssue } from '../auth/taskAccess'
+import { AuthPrompt } from './AuthPrompt'
 import { fundingConfigurationProblem } from '../stellar/config'
 import { EscrowError, fundBounty } from '../stellar/escrow'
 import type { TransactionPhase } from '../stellar/escrow'
@@ -62,6 +65,17 @@ function describe(error: unknown): string {
     : 'Something went wrong while securing the reward.'
 }
 
+function useFundingAccess(bounty: Bounty) {
+  const wallet = useWallet()
+  const auth = useAuth()
+
+  // Mientras la wallet no este conectada manda el flujo de wallet: conectar
+  // primero y firmar despues.
+  return wallet.status === 'connected' && wallet.address !== null
+    ? fundingIssue(auth, wallet.address, bounty)
+    : null
+}
+
 interface FundingPanelProps {
   bounty: Bounty
   onFunded: (bounty: Bounty) => void
@@ -77,6 +91,7 @@ export function FundingPanel({ bounty, onFunded }: FundingPanelProps) {
   )
 
   const busy = step !== 'idle'
+  const accessIssue = useFundingAccess(bounty)
   const configurationProblem = fundingConfigurationProblem()
 
   async function confirmWithMergePay(transaction: SubmittedTransaction) {
@@ -100,7 +115,8 @@ export function FundingPanel({ bounty, onFunded }: FundingPanelProps) {
   }
 
   async function secureReward() {
-    if (busy || submitted !== null || wallet.address === null) {
+    // Sin sesion valida no se construye ninguna transaccion.
+    if (busy || submitted !== null || wallet.address === null || accessIssue !== null) {
       return
     }
 
@@ -171,6 +187,8 @@ export function FundingPanel({ bounty, onFunded }: FundingPanelProps) {
           step={step}
           onRetry={() => void confirmWithMergePay(submitted)}
         />
+      ) : accessIssue !== null ? (
+        <AuthPrompt message={accessIssue.message} hint={accessIssue.hint} />
       ) : (
         <div className="action-panel__action">
           <FundingAction

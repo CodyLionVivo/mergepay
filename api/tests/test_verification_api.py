@@ -21,6 +21,7 @@ from app.stellar_client import (
 from app.verification_service import VERIFIABLE_STATUSES
 from tests.conftest import (
     BASE_BRANCH,
+    sign_in,
     BASE_SHA,
     DEVELOPER,
     HEAD_SHA,
@@ -37,6 +38,18 @@ from tests.conftest import (
 )
 
 PULL_REQUEST_URL = f"https://github.com/{OWNER}/{REPO}/pull/{PULL_NUMBER}"
+
+# Keypair real del developer asignado: abre la sesion de estos tests.
+DEVELOPER_KEYPAIR = Keypair.random()
+DEVELOPER_WALLET = DEVELOPER_KEYPAIR.public_key
+CLIENT_WALLET = Keypair.random().public_key
+
+
+@pytest.fixture(autouse=True)
+def authenticated(client: TestClient) -> None:
+    """Registrar el PR y verificar exigen sesion del developer asignado."""
+    sign_in(client, DEVELOPER_KEYPAIR)
+
 NEW_HEAD_SHA = "n" * 40
 CRITERIA_HASH = "c" * 64
 
@@ -52,6 +65,8 @@ def create_bounty(session_factory: sessionmaker[Session], **overrides: Any) -> i
         "base_sha": BASE_SHA,
         "criteria_hash": CRITERIA_HASH,
         "developer_github": DEVELOPER,
+        "developer_wallet": DEVELOPER_WALLET,
+        "client_wallet": CLIENT_WALLET,
         "status": BountyStatus.ASSIGNED,
         "amount_stroops": 100_000_000,
         "deadline_unix": 1_767_225_600,

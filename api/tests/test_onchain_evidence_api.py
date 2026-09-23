@@ -27,14 +27,17 @@ from tests.conftest import (
     DownSorobanServer,
     FakeGitHub,
     FakeStellar,
+    sign_in,
 )
 
 CONTRACT_ID = StrKey.encode_contract(b"\x33" * 32)
 
 # Lo que guarda MergePay. Los valores on-chain de abajo son distintos a
 # proposito: asi cada test demuestra de donde sale cada campo.
-DB_CLIENT_WALLET = Keypair.random().public_key
-DB_DEVELOPER_WALLET = Keypair.random().public_key
+DB_CLIENT_KEYPAIR = Keypair.random()
+DB_CLIENT_WALLET = DB_CLIENT_KEYPAIR.public_key
+DB_DEVELOPER_KEYPAIR = Keypair.random()
+DB_DEVELOPER_WALLET = DB_DEVELOPER_KEYPAIR.public_key
 DB_AMOUNT = 100_000_000
 DB_CRITERIA_HASH = "c" * 64
 DB_DEADLINE = 1_767_225_600
@@ -65,6 +68,12 @@ LEAKED_SECRET = "SSECRETSEEDTHATMUSTNEVERREACHTHECLIENT00000000000000000"
 def configured_contract(monkeypatch: pytest.MonkeyPatch) -> None:
     """contract_id sale de la configuracion; en los tests, de este valor."""
     monkeypatch.setattr(settings, "stellar_contract_id", CONTRACT_ID)
+
+
+@pytest.fixture(autouse=True)
+def authenticated(client: TestClient) -> None:
+    """Las tasks privadas solo las lee quien participa: aqui, su client."""
+    sign_in(client, DB_CLIENT_KEYPAIR)
 
 
 def on_chain_bounty(**overrides: Any) -> OnChainBounty:
@@ -459,6 +468,8 @@ def paid_bounty(
     client: TestClient, session_factory: sessionmaker[Session], stellar: FakeStellar
 ) -> int:
     """El happy path completo por la API: submission, verificacion y payout."""
+    sign_in(client, DB_DEVELOPER_KEYPAIR)
+
     bounty_id = create_bounty(
         session_factory,
         status=BountyStatus.ASSIGNED,

@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { AlertTriangle, Plus, Trash2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { ApiError, createBounty } from '../api/client'
+import { useAuth } from '../auth/authContext'
+import { AuthPrompt } from '../components/AuthPrompt'
 import { PageHeader } from '../components/PageHeader'
 import { localDateTimeToUnixSeconds } from '../utils/format'
 import { xlmToStroops } from '../utils/xlm'
@@ -42,6 +44,9 @@ export function CreateBountyPage() {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [criteriaErrors, setCriteriaErrors] = useState<string[]>([])
   const [submitError, setSubmitError] = useState('')
+  const auth = useAuth()
+  const authenticated = auth.status === 'authenticated'
+
   const [submitting, setSubmitting] = useState(false)
 
   function updateCriterion(index: number, value: string) {
@@ -137,7 +142,8 @@ export function CreateBountyPage() {
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
-    if (submitting) {
+    // Sin sesion no se envia nada: el client de la task sale de ella.
+    if (submitting || !authenticated) {
       return
     }
 
@@ -369,17 +375,24 @@ export function CreateBountyPage() {
           </p>
         ) : null}
 
+        {authenticated ? null : (
+          <AuthPrompt
+            message="Sign in with your Stellar wallet to create and own this task."
+            hint="Your answers stay in the form while you sign in."
+          />
+        )}
+
         <div className="task-form__footer">
           <button
             type="submit"
             className="button button--primary"
-            disabled={submitting}
+            disabled={submitting || !authenticated}
           >
             {submitting ? 'Creating task...' : 'Create task'}
           </button>
           <p className="task-form__note">
-            The task is created as a draft. Securing the reward on Stellar comes
-            next.
+            The task is created as a draft, owned by your wallet. Securing the
+            reward on Stellar comes next.
           </p>
         </div>
       </form>

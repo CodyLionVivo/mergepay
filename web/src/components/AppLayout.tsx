@@ -1,6 +1,7 @@
 import { GitMerge } from 'lucide-react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
 import { ApiStatus } from './ApiStatus'
+import { AuthButton } from './AuthButton'
 import { WalletButton } from './WalletButton'
 import './AppLayout.css'
 
@@ -37,6 +38,7 @@ export function AppLayout() {
           <div className="app__status">
             <ApiStatus />
             <WalletButton />
+            <AuthButton />
           </div>
         </div>
       </header>

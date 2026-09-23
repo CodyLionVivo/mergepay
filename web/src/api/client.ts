@@ -15,6 +15,19 @@ import type {
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api'
 
+/**
+ * Token de la sesion actual. Lo mantiene AuthProvider; aqui solo se usa para
+ * la cabecera Authorization. Nunca viaja en la URL ni se registra.
+ *
+ * Las lecturas lo adjuntan si existe: el backend decide que puede ver esa
+ * wallet. El marketplace es publico y se pide siempre sin el.
+ */
+let accessToken: string | null = null
+
+export function setAccessToken(token: string | null): void {
+  accessToken = token
+}
+
 export class ApiError extends Error {
   status: number
   /** Motivos concretos cuando el backend los da, por ejemplo al rechazar un PR. */
@@ -92,10 +105,17 @@ async function readErrorDetail(response: Response): Promise<ErrorDetail> {
   return fallback
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function send(
+  path: string,
+  init?: RequestInit,
+  anonymous = false,
+): Promise<Response> {
+  const bearer: Record<string, string> =
+    anonymous || accessToken === null ? {} : { Authorization: `Bearer ${accessToken}` }
+
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
-    headers: { Accept: 'application/json', ...init?.headers },
+    headers: { Accept: 'application/json', ...bearer, ...init?.headers },
   })
 
   if (!response.ok) {
@@ -104,15 +124,33 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new ApiError(message, response.status, reasons)
   }
 
-  return (await response.json()) as T
+  return response
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  return (await (await send(path, init)).json()) as T
+}
+
+/** Lectura publica: nunca lleva sesion, ni aunque exista. */
+async function publicRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  return (await (await send(path, init, true)).json()) as T
+}
+
+function jsonRequest<T>(path: string, body: unknown, method = 'POST'): Promise<T> {
+  return request<T>(path, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
 }
 
 export function getHealth(signal?: AbortSignal): Promise<HealthResponse> {
   return request<HealthResponse>('/health', { signal })
 }
 
+/** El marketplace: solo tasks financiadas, y sin depender de la sesion. */
 export function getBounties(signal?: AbortSignal): Promise<Bounty[]> {
-  return request<Bounty[]>('/bounties', { signal })
+  return publicRequest<Bounty[]>('/bounties', { signal })
 }
 
 export function getBounty(id: number, signal?: AbortSignal): Promise<Bounty> {
@@ -225,4 +263,51 @@ export async function findLatestVerification(
  */
 export function verifyBounty(bountyId: number): Promise<VerificationRecord> {
   return request<VerificationRecord>(`/bounties/${bountyId}/verify`, { method: 'POST' })
+}
+
+
+// ─────────────────────────────────────────
+// Autenticacion por wallet.
+// ─────────────────────────────────────────
+
+export interface AuthChallenge {
+  challenge_id: string
+  /** Se firma exactamente esto: el frontend no reconstruye el mensaje. */
+  message: string
+  expires_at_unix: number
+}
+
+export interface AuthSession {
+  access_token: string
+  token_type: string
+  wallet: string
+  expires_at_unix: number
+}
+
+export interface AuthMe {
+  wallet: string
+  expires_at_unix: number
+}
+
+export function createAuthChallenge(wallet: string): Promise<AuthChallenge> {
+  return jsonRequest<AuthChallenge>('/auth/challenge', { wallet })
+}
+
+export function verifyAuthChallenge(
+  challengeId: string,
+  walletSignature: string,
+): Promise<AuthSession> {
+  return jsonRequest<AuthSession>('/auth/verify', {
+    challenge_id: challengeId,
+    wallet_signature: walletSignature,
+  })
+}
+
+export function getAuthMe(signal?: AbortSignal): Promise<AuthMe> {
+  return request<AuthMe>('/auth/me', { signal })
+}
+
+/** 204 sin cuerpo: se lee la respuesta cruda, no JSON. */
+export async function logoutAuth(): Promise<void> {
+  await send('/auth/logout', { method: 'POST' })
 }

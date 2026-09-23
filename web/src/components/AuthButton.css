@@ -1,0 +1,77 @@
+.auth-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background-color: var(--surface-elevated);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 550;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.auth-button:hover {
+  border-color: var(--text-secondary);
+}
+
+.auth-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.auth-button--warning {
+  border-color: rgb(210 153 34 / 45%);
+  color: var(--warning);
+}
+
+/* Sesion abierta: candado, address y una sola accion para cerrarla. */
+.auth-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px 5px 12px;
+  border: 1px solid rgb(63 185 80 / 45%);
+  border-radius: 999px;
+  background-color: rgb(63 185 80 / 10%);
+  font-size: 0.8125rem;
+  font-weight: 550;
+  white-space: nowrap;
+}
+
+.auth-chip > svg {
+  color: var(--success);
+}
+
+.auth-chip__label {
+  color: var(--success);
+}
+
+.auth-chip__address {
+  font-family: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.auth-chip__action {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background-color: var(--surface);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 550;
+  cursor: pointer;
+}
+
+.auth-chip__action:hover {
+  border-color: var(--text-secondary);
+  color: var(--text-primary);
+}

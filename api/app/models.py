@@ -168,3 +168,41 @@ class Verification(Base):
     )
 
     submission: Mapped["Submission"] = relationship(back_populates="verifications")
+
+
+class AuthChallenge(Base):
+    """Nonce de un solo uso que una wallet firma para iniciar sesion.
+
+    El propio id es el nonce: aleatorio, irrepetible y con caducidad corta.
+    """
+
+    __tablename__ = "auth_challenges"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+
+    wallet: Mapped[str] = mapped_column(String, nullable=False)
+
+    issued_at_unix: Mapped[int] = mapped_column(Integer, nullable=False)
+    expires_at_unix: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    # Deja de ser null en cuanto se canjea. Nunca vuelve a servir.
+    used_at_unix: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
+class AuthSession(Base):
+    """Sesion de una wallet. Del token solo se guarda su sha256.
+
+    Con la base de datos en la mano no se puede reconstruir ningun token: el
+    valor en crudo solo existe en la respuesta que lo creo y en el navegador.
+    """
+
+    __tablename__ = "auth_sessions"
+
+    token_hash: Mapped[str] = mapped_column(String, primary_key=True)
+
+    wallet: Mapped[str] = mapped_column(String, nullable=False)
+
+    created_at_unix: Mapped[int] = mapped_column(Integer, nullable=False)
+    expires_at_unix: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    revoked_at_unix: Mapped[int | None] = mapped_column(Integer, nullable=True)

@@ -5,6 +5,7 @@ from enum import StrEnum
 from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
+from stellar_sdk import StrKey
 
 NonEmptyStr = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
@@ -180,6 +181,23 @@ GitHubUsername = Annotated[
 WALLET_SIGNATURE_BYTES = 64
 
 
+def validate_wallet_signature(value: str) -> str:
+    """Solo el formato: base64 estandar de una firma ed25519 de 64 bytes.
+
+    Que firme lo que debe se comprueba despues, contra la wallet que
+    corresponda: la del contrato o la del challenge.
+    """
+    try:
+        decoded = base64.b64decode(value, validate=True)
+    except binascii.Error as error:
+        raise ValueError("wallet_signature must be valid base64") from error
+
+    if len(decoded) != WALLET_SIGNATURE_BYTES:
+        raise ValueError("wallet_signature must decode to exactly 64 bytes")
+
+    return value
+
+
 def _normalize_transaction_hash(value: object) -> object:
     # Pydantic evalua `pattern` antes que strip/to_lower, asi que la
     # normalizacion tiene que ir en un validador previo.
@@ -225,17 +243,7 @@ class AssignmentConfirmationCreate(BaseModel):
     @field_validator("wallet_signature")
     @classmethod
     def _check_signature(cls, value: str) -> str:
-        # Solo el formato: base64 estandar de una firma ed25519. Si firma lo que
-        # debe se comprueba despues, contra la wallet on-chain.
-        try:
-            decoded = base64.b64decode(value, validate=True)
-        except binascii.Error as error:
-            raise ValueError("wallet_signature must be valid base64") from error
-
-        if len(decoded) != WALLET_SIGNATURE_BYTES:
-            raise ValueError("wallet_signature must decode to exactly 64 bytes")
-
-        return value
+        return validate_wallet_signature(value)
 
     @field_validator("transaction_hash", mode="before")
     @classmethod
@@ -303,3 +311,63 @@ class VerificationRecordResponse(BaseModel):
 
     # El cliente recibe el resultado tipado, nunca el result_json en crudo.
     result: PullRequestVerificationResult
+
+
+# ─────────────────────────────────────────
+# Autenticacion por wallet.
+# ─────────────────────────────────────────
+
+
+class AuthChallengeCreate(BaseModel):
+    """Solo la wallet que va a firmar. Que la controle se prueba despues."""
+
+    wallet: str
+
+    @field_validator("wallet", mode="before")
+    @classmethod
+    def _strip_wallet(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+    @field_validator("wallet")
+    @classmethod
+    def _check_wallet(cls, value: str) -> str:
+        if not StrKey.is_valid_ed25519_public_key(value):
+            raise ValueError("wallet must be a valid Stellar public key")
+
+        return value
+
+
+class AuthChallengeResponse(BaseModel):
+    challenge_id: str
+    # El frontend firma exactamente esto, sin reconstruirlo.
+    message: str
+    expires_at_unix: int
+
+
+class AuthVerifyCreate(BaseModel):
+    challenge_id: str
+    wallet_signature: str
+
+    @field_validator("challenge_id", "wallet_signature", mode="before")
+    @classmethod
+    def _strip(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+    @field_validator("wallet_signature")
+    @classmethod
+    def _check_signature(cls, value: str) -> str:
+        return validate_wallet_signature(value)
+
+
+class AuthSessionResponse(BaseModel):
+    """El token en crudo viaja aqui una sola vez: no se guarda ni se registra."""
+
+    access_token: str
+    token_type: str
+    wallet: str
+    expires_at_unix: int
+
+
+class AuthMeResponse(BaseModel):
+    wallet: str
+    expires_at_unix: int

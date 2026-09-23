@@ -24,6 +24,7 @@ from tests.conftest import (
     SENSITIVE_RPC_URL,
     DownSorobanServer,
     FakeStellar,
+    sign_in,
 )
 
 CLIENT_WALLET = Keypair.random().public_key
@@ -172,6 +173,12 @@ def snapshot(session_factory: sessionmaker[Session], bounty_id: int) -> dict[str
         assert bounty is not None
 
         return {column: getattr(bounty, column) for column in TRACKED_COLUMNS}
+
+
+@pytest.fixture(autouse=True)
+def authenticated(client: TestClient) -> None:
+    """Aceptar exige sesion, y tiene que ser la del developer on-chain."""
+    sign_in(client, DEVELOPER_KEYPAIR)
 
 
 @pytest.fixture(autouse=True)

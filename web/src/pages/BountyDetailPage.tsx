@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { AlertTriangle, CircleDashed, RotateCcw } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { ApiError, getBounty } from '../api/client'
+import { useAuth } from '../auth/authContext'
 import { BountyStatusBadge } from '../components/BountyStatusBadge'
 import { AssignmentPanel } from '../components/AssignmentPanel'
 import { FundingPanel } from '../components/FundingPanel'
@@ -30,6 +31,8 @@ const SUBMITTED_STATUSES = new Set([
 interface LoadResult {
   token: number
   bountyId: number
+  /** Con que sesion se leyo: al cambiar, la task se vuelve a pedir. */
+  identity: string
   state: 'not-found' | 'error' | 'ready'
   bounty: Bounty | null
   errorDetail: string
@@ -75,12 +78,22 @@ export function BountyDetailPage() {
   const [result, setResult] = useState<LoadResult | null>(null)
   const [reloadToken, setReloadToken] = useState(0)
 
+  const auth = useAuth()
+
+  // Una task puede ser privada, asi que lo leido depende de quien pregunta.
+  // Mientras se restaura la sesion guardada no se pide nada: preguntar como
+  // anonimo daria un 404 que desapareceria al instante.
+  const identity =
+    auth.status === 'authenticated' && auth.wallet !== null ? auth.wallet : 'anonymous'
+  const restoringSession = auth.status === 'checking'
+
   // Igual que en el marketplace: "loading" se deriva en render comparando el
   // resultado guardado con la task y el intento actuales.
   const settled =
     result !== null &&
     result.token === reloadToken &&
-    result.bountyId === bountyId
+    result.bountyId === bountyId &&
+    result.identity === identity
 
   const state: LoadState = settled ? result.state : 'loading'
   const bounty = settled ? result.bounty : null
@@ -94,7 +107,7 @@ export function BountyDetailPage() {
   )
 
   useEffect(() => {
-    if (bountyId === null) {
+    if (bountyId === null || restoringSession) {
       return
     }
 
@@ -105,6 +118,7 @@ export function BountyDetailPage() {
         setResult({
           token: reloadToken,
           bountyId,
+          identity,
           state: 'ready',
           bounty: data,
           errorDetail: '',
@@ -120,6 +134,7 @@ export function BountyDetailPage() {
         setResult({
           token: reloadToken,
           bountyId,
+          identity,
           state: notFound ? 'not-found' : 'error',
           bounty: null,
           errorDetail:
@@ -128,7 +143,7 @@ export function BountyDetailPage() {
       })
 
     return () => controller.abort()
-  }, [bountyId, reloadToken])
+  }, [bountyId, reloadToken, identity, restoringSession])
 
   if (bountyId === null) {
     return (
@@ -173,10 +188,9 @@ export function BountyDetailPage() {
   if (state === 'not-found') {
     return (
       <div className="shell">
-        <NoticePanel tone="muted" title={`Task #${bountyId} was not found`}>
+        <NoticePanel tone="muted" title="Task not found">
           <p className="detail-state__text">
-            It may have been removed, or the link points to a task that never
-            existed.
+            It may have been removed or this link is unavailable.
           </p>
           <Link className="button button--secondary" to="/">
             Back to tasks

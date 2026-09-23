@@ -2,6 +2,9 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { AlertTriangle, GitPullRequest, Loader, RotateCcw, Send, Wallet } from 'lucide-react'
 import { ApiError, createSubmission } from '../api/client'
+import { useAuth } from '../auth/authContext'
+import { submissionIssue } from '../auth/taskAccess'
+import { AuthPrompt } from './AuthPrompt'
 import { abbreviateAddress, useWallet } from '../stellar/walletContext'
 import type { Bounty, Submission } from '../types/bounty'
 import { isCanonicalPullRequestUrl } from '../utils/github'
@@ -79,6 +82,12 @@ export function SubmissionPanel({ bounty, onSubmitted }: SubmissionPanelProps) {
 
 function SubmissionAction({ bounty, onSubmitted }: SubmissionPanelProps) {
   const wallet = useWallet()
+  const auth = useAuth()
+
+  const accessIssue =
+    wallet.status === 'connected' && wallet.address !== null
+      ? submissionIssue(auth, wallet.address, bounty)
+      : null
 
   if (wallet.status === 'unavailable') {
     return (
@@ -145,26 +154,10 @@ function SubmissionAction({ bounty, onSubmitted }: SubmissionPanelProps) {
     )
   }
 
-  // Proteccion de UX del MVP: el backend todavia no autentica la wallet por
-  // HTTP, pero la UI solo deja enviar a la wallet que acepto la task.
-  if (wallet.address !== bounty.developer_wallet) {
-    return (
-      <div className="action-panel__blocked">
-        <p className="action-panel__blocked-title">
-          Switch to the assigned developer wallet to submit this work.
-        </p>
-        <div className="action-panel__action">
-          <button
-            type="button"
-            className="button button--secondary"
-            onClick={() => void wallet.refresh()}
-          >
-            <RotateCcw size={16} aria-hidden="true" />
-            Refresh wallet
-          </button>
-        </div>
-      </div>
-    )
+  // El backend exige sesion del developer asignado; la UI no deja ni
+  // intentarlo con otra wallet.
+  if (accessIssue !== null) {
+    return <AuthPrompt message={accessIssue.message} hint={accessIssue.hint} />
   }
 
   return <PullRequestForm bounty={bounty} onSubmitted={onSubmitted} />

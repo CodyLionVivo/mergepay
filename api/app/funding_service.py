@@ -61,11 +61,15 @@ def confirm_funding(
     bounty: Bounty,
     transaction_hash: str,
     github: GitHubClient,
+    authenticated_wallet: str,
 ) -> Bounty:
     """Pasa un bounty DRAFT a OPEN_FUNDED tras comprobar su escrow on-chain.
 
     Todo se verifica antes de escribir, y la escritura es un unico commit: un
     fallo en cualquier paso deja la base de datos tal como estaba.
+
+    La wallet que financia no se acepta del body: sale de la sesion y tiene que
+    coincidir con el client que registro el contrato.
     """
     normalized_hash = transaction_hash.lower()
 
@@ -114,6 +118,14 @@ def confirm_funding(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="On-chain bounty does not match MergePay task",
+        )
+
+    # La sesion tiene que ser la del client on-chain, sea un DRAFT nuevo o uno
+    # antiguo sin client_wallet todavia. Nada se ha escrito aun.
+    if on_chain.client != authenticated_wallet:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Authenticated wallet does not match funding client",
         )
 
     try:

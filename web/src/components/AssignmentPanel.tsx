@@ -10,6 +10,9 @@ import {
   Wallet,
 } from 'lucide-react'
 import { ApiError, confirmBountyAssignment } from '../api/client'
+import { useAuth } from '../auth/authContext'
+import { assignmentIssue } from '../auth/taskAccess'
+import { AuthPrompt } from './AuthPrompt'
 import { signAssignmentOwnership } from '../stellar/assignmentMessage'
 import {
   clearPendingAssignment,
@@ -65,6 +68,16 @@ export function AssignmentPanel({ bounty, onAssigned }: AssignmentPanelProps) {
 
   const busy = step !== 'idle'
 
+  const wallet = useWallet()
+  const auth = useAuth()
+
+  // Aceptar exige sesion propia: el backend comprueba que la wallet que
+  // acepto on-chain es la de la sesion.
+  const accessIssue =
+    wallet.status === 'connected' && wallet.address !== null
+      ? assignmentIssue(auth, wallet.address, bounty)
+      : null
+
   /** Solo POST /assigned: ni Freighter ni transacciones. */
   async function confirmWithMergePay(signed: SignedAssignment) {
     setStep('syncing')
@@ -84,7 +97,11 @@ export function AssignmentPanel({ bounty, onAssigned }: AssignmentPanelProps) {
       setStep('idle')
       onAssigned(updated)
     } catch (caught) {
-      if (caught instanceof ApiError && caught.status === 403) {
+      if (
+        caught instanceof ApiError &&
+        caught.status === 403 &&
+        caught.message === 'Developer wallet signature is invalid'
+      ) {
         // El backend rechazo la firma: reenviarla daria otro 403, asi que se
         // descarta solo la firma y se puede volver a firmar la prueba.
         const unsigned: PendingAssignment = { ...signed, walletSignature: null }
@@ -215,7 +232,9 @@ export function AssignmentPanel({ bounty, onAssigned }: AssignmentPanelProps) {
         Stellar Testnet — no real funds
       </p>
 
-      {pending === null ? (
+      {accessIssue !== null ? (
+        <AuthPrompt message={accessIssue.message} hint={accessIssue.hint} />
+      ) : pending === null ? (
         <AcceptAction
           bounty={bounty}
           busy={busy}

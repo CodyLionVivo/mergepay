@@ -6,13 +6,16 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import './index.css'
 import App from './App.tsx'
+import { AuthProvider } from './components/AuthProvider'
 import { WalletProvider } from './components/WalletProvider'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
       <WalletProvider>
-        <App />
+        <AuthProvider>
+          <App />
+        </AuthProvider>
       </WalletProvider>
     </BrowserRouter>
   </StrictMode>,
