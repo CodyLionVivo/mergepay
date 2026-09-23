@@ -2,7 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import assignment_service, funding_service, verification_service
+from app import (
+    assignment_service,
+    evidence_service,
+    funding_service,
+    verification_service,
+)
 from app.database import get_db
 from app.github_client import GitHubClient
 from app.hashing import compute_criteria_hash
@@ -12,6 +17,7 @@ from app.schemas import (
     BountyCreate,
     BountyResponse,
     FundingConfirmationCreate,
+    OnChainBountyResponse,
     SubmissionCreate,
     SubmissionResponse,
     VerificationRecordResponse,
@@ -74,6 +80,16 @@ def list_bounties(db: Session = Depends(get_db)) -> list[Bounty]:
 @router.get("/{bounty_id}", response_model=BountyResponse)
 def get_bounty(bounty_id: int, db: Session = Depends(get_db)) -> Bounty:
     return _get_bounty_or_404(db, bounty_id)
+
+
+@router.get("/{bounty_id}/onchain", response_model=OnChainBountyResponse)
+def get_onchain_bounty(
+    bounty_id: int, db: Session = Depends(get_db)
+) -> OnChainBountyResponse:
+    """El escrow tal como lo guarda el contrato. Solo lee: ni firma ni escribe."""
+    bounty = _get_bounty_or_404(db, bounty_id)
+
+    return evidence_service.read_onchain_bounty(bounty)
 
 
 @router.post("/{bounty_id}/funded", response_model=BountyResponse)

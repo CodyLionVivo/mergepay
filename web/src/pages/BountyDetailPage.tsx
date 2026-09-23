@@ -1,68 +1,20 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, CircleDashed, RotateCcw, ShieldCheck } from 'lucide-react'
+import { AlertTriangle, CircleDashed, RotateCcw } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { ApiError, getBounty } from '../api/client'
 import { BountyStatusBadge } from '../components/BountyStatusBadge'
 import { AssignmentPanel } from '../components/AssignmentPanel'
 import { FundingPanel } from '../components/FundingPanel'
+import { OnChainEvidencePanel } from '../components/OnChainEvidencePanel'
 import { PageHeader } from '../components/PageHeader'
 import { SubmissionPanel } from '../components/SubmissionPanel'
 import { SubmissionSummary } from '../components/SubmissionSummary'
 import { VerificationPanel } from '../components/VerificationPanel'
 import { useSubmittedWork } from '../hooks/useSubmittedWork'
-import { abbreviateAddress } from '../stellar/walletContext'
 import type { Bounty, Submission } from '../types/bounty'
 import { abbreviateHash, formatUnixSeconds } from '../utils/format'
 import { formatXlm } from '../utils/xlm'
 import './BountyDetailPage.css'
-
-/** Escrow ya creado y confirmado por MergePay, aun sin liberar. */
-function FundedSummary({ bounty }: { bounty: Bounty }) {
-  return (
-    <section className="detail-notice detail-notice--success" aria-labelledby="funded-title">
-      <ShieldCheck size={18} aria-hidden="true" />
-      <div className="detail-notice__body">
-        <h2 className="detail-notice__title" id="funded-title">
-          Reward secured on Stellar Testnet.
-        </h2>
-        <dl className="funded-facts">
-          <div>
-            <dt>Reward</dt>
-            <dd>{formatXlm(bounty.amount_stroops)} XLM</dd>
-          </div>
-          {bounty.client_wallet !== null ? (
-            <div>
-              <dt>Client wallet</dt>
-              <dd>
-                <code title={bounty.client_wallet}>
-                  {abbreviateAddress(bounty.client_wallet)}
-                </code>
-              </dd>
-            </div>
-          ) : null}
-          {bounty.create_tx_hash !== null ? (
-            <div>
-              <dt>Funding transaction</dt>
-              <dd>
-                <code title={bounty.create_tx_hash}>
-                  {abbreviateHash(bounty.create_tx_hash)}
-                </code>
-              </dd>
-            </div>
-          ) : null}
-          {bounty.base_sha !== null ? (
-            <div>
-              <dt>Base commit</dt>
-              <dd>
-                <code title={bounty.base_sha}>{abbreviateHash(bounty.base_sha)}</code>
-              </dd>
-            </div>
-          ) : null}
-        </dl>
-      </div>
-    </section>
-  )
-}
 
 type LoadState = 'loading' | 'not-found' | 'error' | 'ready'
 
@@ -317,8 +269,16 @@ export function BountyDetailPage() {
         </>
       ) : null}
 
-      {bounty.create_tx_hash !== null && bounty.release_tx_hash === null ? (
-        <FundedSummary bounty={bounty} />
+      {bounty.create_tx_hash !== null ? (
+        <OnChainEvidencePanel
+          bounty={bounty}
+          submission={
+            SUBMITTED_STATUSES.has(bounty.status) && work.submission.status === 'ready'
+              ? work.submission.value
+              : null
+          }
+          verification={work.verification}
+        />
       ) : null}
 
       <div className="detail-sections">

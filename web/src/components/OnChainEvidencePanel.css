@@ -1,0 +1,433 @@
+/* Evidencia on-chain: panel informativo, sin acciones que cambien estado. */
+
+.evidence-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 20px;
+  padding: 22px;
+  border: 1px solid rgb(88 166 255 / 35%);
+  border-radius: var(--radius);
+  background-color: var(--surface);
+}
+
+.evidence-panel__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.evidence-panel__head > svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--primary);
+}
+
+.evidence-panel__title {
+  margin-bottom: 4px;
+  font-size: 1.0625rem;
+}
+
+.evidence-panel__subtitle {
+  color: var(--text-secondary);
+  font-size: 0.9375rem;
+}
+
+.evidence-panel__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.evidence-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.evidence-badge--live {
+  border-color: rgb(88 166 255 / 45%);
+  color: var(--primary);
+}
+
+.evidence-badge--testnet {
+  border-color: rgb(210 153 34 / 45%);
+  color: var(--warning);
+}
+
+.evidence-muted {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.evidence-panel__loading,
+.evidence-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.evidence-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid rgb(248 81 73 / 45%);
+  border-radius: var(--radius-sm);
+  background-color: rgb(248 81 73 / 10%);
+}
+
+.evidence-error > svg {
+  flex-shrink: 0;
+  margin-top: 3px;
+  color: var(--danger);
+}
+
+.evidence-error__body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.evidence-error__title {
+  font-weight: 650;
+}
+
+/* ─────────────────────────────────────────
+   Bloques
+   ───────────────────────────────────────── */
+
+.evidence-panel__content {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+}
+
+.evidence-block {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background-color: var(--bg);
+}
+
+.evidence-block--wide {
+  grid-column: 1 / -1;
+}
+
+.evidence-block__title {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.evidence-facts {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+}
+
+.evidence-facts--row {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 12px 28px;
+}
+
+.evidence-facts dt {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.evidence-facts dd {
+  margin: 4px 0 0;
+  font-weight: 550;
+}
+
+/* Valor abreviado + Copy + enlace: se parte en varias lineas si no cabe. */
+.evidence-value {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  max-width: 100%;
+}
+
+.evidence-value code {
+  overflow-wrap: anywhere;
+}
+
+.evidence-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.8125rem;
+  font-weight: 550;
+}
+
+.evidence-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+}
+
+.evidence-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.evidence-tag--match {
+  border-color: rgb(63 185 80 / 45%);
+  color: var(--success);
+}
+
+.evidence-tag--mismatch {
+  border-color: rgb(248 81 73 / 60%);
+  background-color: rgb(248 81 73 / 12%);
+  color: var(--danger);
+  letter-spacing: 0.04em;
+}
+
+/* ─────────────────────────────────────────
+   Proof flow
+   ───────────────────────────────────────── */
+
+.proof-flow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.proof-step {
+  display: flex;
+  flex: 1 1 150px;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background-color: var(--surface);
+  font-size: 0.875rem;
+}
+
+.proof-step__arrow {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+
+/* Apilados en movil, la secuencia va hacia abajo. */
+@media (max-width: 560px) {
+  .proof-step__arrow {
+    transform: rotate(90deg);
+  }
+}
+
+.proof-step__label {
+  flex: 1;
+  font-weight: 600;
+}
+
+.proof-step__state {
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.proof-step--done {
+  border-color: rgb(63 185 80 / 40%);
+}
+
+.proof-step--done > svg:not(.proof-step__arrow),
+.proof-step--done .proof-step__state {
+  color: var(--success);
+}
+
+.proof-step--pending {
+  border-style: dashed;
+}
+
+.proof-step--pending > svg:not(.proof-step__arrow),
+.proof-step--pending .proof-step__state,
+.proof-step--pending .proof-step__label {
+  color: var(--text-secondary);
+}
+
+/* ─────────────────────────────────────────
+   Contrato, commitments y consistencia
+   ───────────────────────────────────────── */
+
+.contract-status {
+  display: inline-flex;
+  padding: 1px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 650;
+}
+
+.contract-status--info {
+  border-color: rgb(88 166 255 / 45%);
+  color: var(--primary);
+}
+
+.contract-status--success {
+  border-color: rgb(63 185 80 / 45%);
+  color: var(--success);
+}
+
+.contract-status--muted {
+  color: var(--text-secondary);
+}
+
+.commitment {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.commitment + .commitment {
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.commitment__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+}
+
+.commitment__title {
+  font-weight: 600;
+}
+
+.evidence-pending {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.evidence-compare {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid rgb(248 81 73 / 45%);
+  border-radius: var(--radius-sm);
+}
+
+.evidence-compare dt {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.evidence-compare dd {
+  margin: 4px 0 0;
+}
+
+.consistency-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.consistency-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background-color: var(--surface);
+  font-size: 0.875rem;
+}
+
+.consistency-row > svg {
+  margin-top: 3px;
+}
+
+.consistency-row__body {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.consistency-row__detail {
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  overflow-wrap: break-word;
+}
+
+.consistency-row__state {
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.consistency-row--match > svg,
+.consistency-row--match .consistency-row__state {
+  color: var(--success);
+}
+
+.consistency-row--mismatch {
+  border-color: rgb(248 81 73 / 50%);
+}
+
+.consistency-row--mismatch > svg,
+.consistency-row--mismatch .consistency-row__state {
+  color: var(--danger);
+}
+
+/* ─────────────────────────────────────────
+   PAID: resumen del settlement
+   ───────────────────────────────────────── */
+
+.evidence-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  border: 2px solid rgb(63 185 80 / 50%);
+  border-radius: var(--radius-sm);
+  background-color: rgb(63 185 80 / 8%);
+}
+
+.evidence-hero__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1rem;
+}
+
+.evidence-hero__title svg {
+  flex-shrink: 0;
+  color: var(--success);
+}

@@ -106,3 +106,22 @@ export interface VerificationRecord {
   created_at: string
   result: PullRequestVerificationResult
 }
+
+/** El escrow tal como lo guarda el contrato, leido por el backend en Stellar. */
+export interface OnChainBounty {
+  network: string
+  contract_id: string
+
+  client_wallet: string
+  developer_wallet: string | null
+
+  amount_stroops: number
+
+  criteria_hash: string
+  evidence_hash: string | null
+
+  deadline_unix: number
+
+  /** Open, Assigned, Paid, Cancelled o Refunded. */
+  contract_status: string
+}

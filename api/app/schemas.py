@@ -270,6 +270,30 @@ class SubmissionResponse(BaseModel):
     updated_at: datetime
 
 
+class OnChainBountyResponse(BaseModel):
+    """Lo que el contrato dice de un bounty, leido en el momento de la peticion.
+
+    Todo sale de `get_bounty` salvo `network` y `contract_id`, que son la
+    configuracion del backend. Solo datos publicos: ni RPC URL, ni XDR, ni el
+    secreto del verifier.
+    """
+
+    network: str
+    contract_id: str
+
+    client_wallet: str
+    developer_wallet: str | None
+
+    amount_stroops: int
+
+    criteria_hash: str
+    evidence_hash: str | None
+
+    deadline_unix: int
+
+    contract_status: str
+
+
 class VerificationRecordResponse(BaseModel):
     id: int
     bounty_id: int

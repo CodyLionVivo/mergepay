@@ -8,6 +8,7 @@
 import type {
   Bounty,
   BountyCreate,
+  OnChainBounty,
   Submission,
   VerificationRecord,
 } from '../types/bounty'
@@ -128,6 +129,14 @@ export function createBounty(
     body: JSON.stringify(payload),
     signal,
   })
+}
+
+/**
+ * El escrow leido del contrato en este momento. Solo lectura: el backend
+ * simula `get_bounty`, sin firmar ni enviar nada.
+ */
+export function getOnChainBounty(bountyId: number, signal?: AbortSignal): Promise<OnChainBounty> {
+  return request<OnChainBounty>(`/bounties/${bountyId}/onchain`, { signal })
 }
 
 /**
