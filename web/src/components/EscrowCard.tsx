@@ -4,6 +4,7 @@ import { ArrowUpRight, Clock, RotateCw, ShieldCheck } from 'lucide-react'
 import { Brand } from './Brand'
 import { abbreviateAddress } from '../stellar/walletContext'
 import { stellarExpertSearchUrl } from '../stellar/explorer'
+import './EscrowCard.css'
 
 interface EscrowCardProps {
   amount: string

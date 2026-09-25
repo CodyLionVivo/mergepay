@@ -1,4 +1,286 @@
+/* =========================================================
+   INITIAL LOADER
+   Siempre ocupa TODO el viewport.
+   No depende del tema de la aplicación.
+   ========================================================= */
+
+.initial-loader {
+  position: fixed !important;
+
+  inset: 0 !important;
+
+  z-index: 999999 !important;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  width: 100vw !important;
+  height: 100vh !important;
+
+  min-width: 100vw;
+  min-height: 100vh;
+
+  margin: 0 !important;
+  padding: 0 !important;
+
+  overflow: hidden;
+
+  background: #080b13 !important;
+}
+
+
+/* =========================================================
+   CONTENIDO
+   ========================================================= */
+
+.initial-loader__content {
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: center;
+  justify-content: center;
+
+  gap: 14px;
+
+  text-align: center;
+
+  animation:
+    loader-content-in
+    450ms
+    ease
+    both;
+}
+
+
+/* =========================================================
+   LOGO
+   ========================================================= */
+
+.initial-loader__logo {
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  width: 120px;
+  height: 120px;
+
+  color: #ffffff;
+
+  filter:
+    drop-shadow(
+      0 14px 28px
+      rgb(108 76 255 / 28%)
+    );
+
+  animation:
+    loader-logo-float
+    2.2s
+    ease-in-out
+    infinite;
+}
+
+
+/* Si Brand contiene icono + nombre,
+   mostramos únicamente el icono */
+
+.initial-loader__logo .brand__mark {
+  width: 100px;
+  height: 100px;
+}
+
+.initial-loader__logo .brand__name {
+  display: none;
+}
+
+
+/* =========================================================
+   TEXTO
+   ========================================================= */
+
+.initial-loader__title {
+  margin: 0;
+
+  color: #ffffff !important;
+
+  font-size: 1.25rem;
+  font-weight: 700;
+
+  line-height: 1.2;
+
+  letter-spacing: -0.02em;
+}
+
+
+.initial-loader__text {
+  margin: 0;
+
+  color: #aeb6c8 !important;
+
+  font-size: 0.875rem;
+
+  line-height: 1.5;
+}
+
+
+/* =========================================================
+   INDICADOR
+   ========================================================= */
+
+.initial-loader__indicator {
+  position: relative;
+
+  width: 64px;
+  height: 3px;
+
+  margin-top: 4px;
+
+  overflow: hidden;
+
+  border-radius: 999px;
+
+  background:
+    rgb(126 92 255 / 16%);
+}
+
+
+.initial-loader__indicator::after {
+  position: absolute;
+
+  top: 0;
+  left: 0;
+
+  width: 45%;
+  height: 100%;
+
+  border-radius: inherit;
+
+  background: #8b6cff;
+
+  content: '';
+
+  animation:
+    loader-indicator
+    1.15s
+    ease-in-out
+    infinite;
+}
+
+
+/* =========================================================
+   IMPORTANTE:
+   LIGHT Y DARK NO CAMBIAN EL LOADER
+   ========================================================= */
+
+html[data-theme='light'] .initial-loader,
+html[data-theme='dark'] .initial-loader {
+  background: #080b13 !important;
+}
+
+html[data-theme='light'] .initial-loader__text,
+html[data-theme='dark'] .initial-loader__text {
+  color: #aeb6c8 !important;
+}
+
+html[data-theme='light'] .initial-loader__title,
+html[data-theme='dark'] .initial-loader__title {
+  color: #ffffff !important;
+}
+
+
+/* =========================================================
+   ANIMACIONES
+   ========================================================= */
+
+@keyframes loader-content-in {
+  from {
+    opacity: 0;
+
+    transform:
+      translateY(8px)
+      scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+
+    transform:
+      translateY(0)
+      scale(1);
+  }
+}
+
+
+@keyframes loader-logo-float {
+  0%,
+  100% {
+    transform:
+      translateY(0)
+      scale(1);
+  }
+
+  50% {
+    transform:
+      translateY(-8px)
+      scale(1.035);
+  }
+}
+
+
+@keyframes loader-indicator {
+  0% {
+    transform:
+      translateX(-150%);
+  }
+
+  50% {
+    transform:
+      translateX(80%);
+  }
+
+  100% {
+    transform:
+      translateX(260%);
+  }
+}
+
+
+/* =========================================================
+   REDUCED MOTION
+   ========================================================= */
+
 @media (prefers-reduced-motion: reduce) {
-  .app-loader .pyramid { transform: none; }
-  .app-loader .pyramid__spin { animation: none; }
+
+  .initial-loader__content,
+  .initial-loader__logo,
+  .initial-loader__indicator::after {
+    animation: none;
+  }
+
+}
+
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (width <= 600px) {
+
+  .initial-loader__logo {
+    width: 100px;
+    height: 100px;
+  }
+
+  .initial-loader__logo .brand__mark {
+    width: 84px;
+    height: 84px;
+  }
+
+  .initial-loader__text {
+    font-size: 0.8125rem;
+  }
+
 }

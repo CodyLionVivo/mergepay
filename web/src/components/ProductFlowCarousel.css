@@ -1,0 +1,360 @@
+/* =========================================================
+   PRODUCT FLOW
+   ========================================================= */
+
+.product-flow {
+  width: 100%;
+  margin-top: 72px;
+  overflow: hidden;
+}
+
+
+/* =========================================================
+   HEADING
+   ========================================================= */
+
+.product-flow__heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 32px;
+
+  margin-bottom: 22px;
+}
+
+.product-flow__heading h2 {
+  margin: 0;
+
+  color: var(--text-primary);
+
+  font-size: 1.35rem;
+  font-weight: 650;
+
+  letter-spacing: -0.025em;
+}
+
+.product-flow__heading .hero__eyebrow {
+  margin-bottom: 12px;
+}
+
+.product-flow__summary {
+  width: 220px;
+  flex: 0 0 auto;
+
+  margin: 0;
+
+  color: var(--text-secondary);
+
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+
+/* =========================================================
+   VIEWPORT
+   ========================================================= */
+
+.product-flow__viewport {
+  position: relative;
+
+  width: 100%;
+
+  overflow: hidden;
+}
+
+
+/* =========================================================
+   MARQUEE
+   ========================================================= */
+
+.product-flow__marquee {
+  display: flex;
+
+  width: max-content;
+
+  will-change: transform;
+
+  animation:
+    product-flow-scroll
+    30s
+    linear
+    infinite;
+}
+
+
+/*
+ * IMPORTANTE:
+ * No agregamos :hover con animation-play-state.
+ *
+ * El carrusel NO debe detenerse cuando el mouse
+ * pasa por encima.
+ */
+
+
+/* =========================================================
+   GROUP
+   ========================================================= */
+
+.product-flow__group {
+  display: flex;
+
+  flex: none;
+
+  gap: 16px;
+
+  margin: 0;
+  padding: 0 16px 0 0;
+
+  list-style: none;
+}
+
+
+/* =========================================================
+   CARD
+   ========================================================= */
+
+.product-flow__card {
+  box-sizing: border-box;
+
+  width: 260px;
+  min-width: 260px;
+  height: 150px;
+
+  flex: 0 0 260px;
+
+  padding: 18px 16px;
+
+  overflow: hidden;
+
+  border-top:
+    1px solid var(--primary);
+
+  color: var(--text-primary);
+
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(
+        in srgb,
+        var(--primary) 4%,
+        transparent
+      ),
+      transparent 65%
+    );
+}
+
+
+/* =========================================================
+   CARD HEADER
+   ========================================================= */
+
+.product-flow__top {
+  display: flex;
+
+  align-items: center;
+  justify-content: space-between;
+
+  width: 100%;
+
+  margin-bottom: 18px;
+}
+
+.product-flow__icon {
+  flex: none;
+
+  color: var(--primary);
+}
+
+.product-flow__number {
+  flex: none;
+
+  color: var(--text-secondary);
+
+  font-size: 0.6875rem;
+  font-weight: 650;
+
+  letter-spacing: 0.08em;
+}
+
+
+/* =========================================================
+   CARD TEXT
+   ========================================================= */
+
+.product-flow__title {
+  display: block;
+
+  width: 100%;
+
+  margin: 0 0 8px;
+
+  overflow: hidden;
+
+  color: var(--text-primary);
+
+  font-size: 0.9rem;
+  font-weight: 650;
+
+  line-height: 1.3;
+
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.product-flow__description {
+  display: -webkit-box;
+
+  width: 100%;
+
+  margin: 0;
+
+  overflow: hidden;
+
+  color: var(--text-secondary);
+
+  font-size: 0.78rem;
+  line-height: 1.55;
+
+  overflow-wrap: normal;
+  word-break: normal;
+
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+
+/* =========================================================
+   INFINITE ANIMATION
+   ========================================================= */
+
+/*
+ * Tenemos dos grupos exactamente iguales:
+ *
+ * [1][2][3][4][5] [1][2][3][4][5]
+ *
+ * Movemos exactamente la mitad del marquee.
+ * Cuando termina, la segunda copia está exactamente
+ * donde estaba la primera.
+ *
+ * El navegador reinicia la animación y visualmente
+ * no existe ningún salto.
+ */
+
+@keyframes product-flow-scroll {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+
+/* =========================================================
+   LIGHT THEME
+   ========================================================= */
+
+html[data-theme='light']
+.product-flow__heading h2,
+
+html[data-theme='light']
+.product-flow__title {
+  color: var(--text-primary);
+}
+
+html[data-theme='light']
+.product-flow__description,
+
+html[data-theme='light']
+.product-flow__summary,
+
+html[data-theme='light']
+.product-flow__number {
+  color: var(--text-secondary);
+}
+
+
+/* =========================================================
+   DARK THEME
+   ========================================================= */
+
+html[data-theme='dark']
+.product-flow__heading h2,
+
+html[data-theme='dark']
+.product-flow__title {
+  color: var(--text-primary);
+}
+
+
+/* =========================================================
+   TABLET
+   ========================================================= */
+
+@media (width <= 900px) {
+
+  .product-flow {
+    margin-top: 56px;
+  }
+
+  .product-flow__heading {
+    align-items: flex-start;
+  }
+
+  .product-flow__card {
+    width: 240px;
+    min-width: 240px;
+
+    flex-basis: 240px;
+  }
+}
+
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (width <= 600px) {
+
+  .product-flow {
+    margin-top: 48px;
+  }
+
+  .product-flow__heading {
+    flex-direction: column;
+
+    align-items: flex-start;
+
+    gap: 12px;
+  }
+
+  .product-flow__summary {
+    width: auto;
+  }
+
+  .product-flow__card {
+    width: 220px;
+    min-width: 220px;
+
+    flex-basis: 220px;
+
+    padding: 16px 14px;
+  }
+
+  .product-flow__marquee {
+    animation-duration: 26s;
+  }
+}
+
+
+/* =========================================================
+   ACCESSIBILITY
+   ========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+
+  .product-flow__marquee {
+    animation: none;
+  }
+}

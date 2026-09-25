@@ -1,106 +1,357 @@
+/* =========================================================
+   HERO
+   ========================================================= */
+
 .hero {
   max-width: 60ch;
   margin-bottom: 56px;
 }
 
 .hero__eyebrow {
-  margin-bottom: 14px;
+  margin: 0 0 14px;
+
   color: var(--primary);
+
   font-size: 0.8125rem;
   font-weight: 600;
+
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
 .hero__title {
-  font-size: clamp(2rem, 1.3rem + 2.8vw, 3rem);
+  margin: 0;
+
+  color: var(--text-primary);
+
+  font-size: clamp(
+    2rem,
+    1.3rem + 2.8vw,
+    3rem
+  );
+
+  line-height: 1.08;
+  letter-spacing: -0.035em;
 }
 
 .hero__lede {
-  margin-top: 16px;
+  max-width: 54ch;
+
+  margin: 16px 0 0;
+
   color: var(--text-secondary);
+
   font-size: 1.0625rem;
+  line-height: 1.55;
 }
+
+
+/* =========================================================
+   HERO ACTIONS
+   ========================================================= */
 
 .hero__actions {
   display: flex;
+
   flex-wrap: wrap;
+
   gap: 12px;
+
   margin-top: 28px;
 }
 
+
+/* =========================================================
+   CREATE REWARD BUTTON
+   No usa button--primary.
+   ========================================================= */
+
+.marketplace-create-button {
+  display: inline-flex;
+
+  min-height: 42px;
+
+  align-items: center;
+  justify-content: center;
+
+  gap: 8px;
+
+  padding: 0 18px;
+
+  border:
+    1px solid var(--border-strong);
+
+  border-radius: 8px;
+
+  background:
+    var(--surface);
+
+  color:
+    var(--text-primary);
+
+  font-size: 0.875rem;
+  font-weight: 600;
+
+  line-height: 1;
+
+  box-shadow: none;
+
+  text-decoration: none;
+
+  cursor: pointer;
+
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    transform 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.marketplace-create-button:hover {
+  background:
+    var(--surface-elevated);
+
+  border-color:
+    var(--border-strong);
+
+  color:
+    var(--text-primary);
+
+  text-decoration: none;
+
+  transform: translateY(-1px);
+}
+
+.marketplace-create-button:active {
+  transform: translateY(0);
+}
+
+.marketplace-create-button:focus-visible {
+  outline:
+    2px solid var(--primary);
+
+  outline-offset: 3px;
+}
+
+
+/* LIGHT */
+
+html[data-theme='light']
+.marketplace-create-button {
+  background: #ffffff;
+
+  border-color: #d8dce6;
+
+  color: #161922;
+
+  box-shadow:
+    0 1px 2px
+    rgb(15 23 42 / 5%);
+}
+
+html[data-theme='light']
+.marketplace-create-button:hover {
+  background: #f7f7fa;
+
+  border-color: #b9beca;
+
+  color: #161922;
+
+  box-shadow:
+    0 4px 12px
+    rgb(15 23 42 / 7%);
+}
+
+
+/* DARK */
+
+html[data-theme='dark']
+.marketplace-create-button {
+  background: #111622;
+
+  border-color: #30394b;
+
+  color: #f6f7fb;
+}
+
+html[data-theme='dark']
+.marketplace-create-button:hover {
+  background: #171d2a;
+
+  border-color: #485269;
+
+  color: #ffffff;
+}
+
+
+/* =========================================================
+   NETWORK
+   ========================================================= */
+
+.marketplace-network {
+  margin: 0 0 18px;
+
+  color: var(--text-secondary);
+
+  font-size: 0.75rem;
+
+  letter-spacing: 0.02em;
+}
+
+
+/* =========================================================
+   TASKS HEADER
+   ========================================================= */
+
 .tasks__head {
   display: flex;
+
   flex-wrap: wrap;
+
   align-items: baseline;
   justify-content: space-between;
+
   gap: 8px;
+
   padding-bottom: 14px;
-  border-bottom: 1px solid var(--border);
+
+  border-bottom:
+    1px solid var(--border);
 }
 
 .tasks__title {
+  margin: 0;
+
+  color: var(--text-primary);
+
   font-size: 1.125rem;
+  font-weight: 650;
+
+  letter-spacing: -0.02em;
 }
 
 .tasks__note {
+  margin: 0;
+
   color: var(--text-secondary);
+
   font-size: 0.8125rem;
 }
 
+
+/* =========================================================
+   TASK GRID
+   ========================================================= */
+
 .tasks__grid {
   display: grid;
+
   gap: 16px;
+
   margin-top: 20px;
-  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+
+  padding: 0;
+
+  list-style: none;
+
+  grid-template-columns:
+    repeat(
+      auto-fill,
+      minmax(290px, 1fr)
+    );
 }
+
+
+/* =========================================================
+   TASK CARD
+   ========================================================= */
 
 .task-card {
   display: flex;
+
   height: 100%;
+
   flex-direction: column;
+
   align-items: flex-start;
+
   gap: 12px;
+
   padding: 20px;
+
   color: var(--text-primary);
-  transition: border-color 120ms ease, background-color 120ms ease;
+
+  transition:
+    border-color 120ms ease,
+    background-color 120ms ease,
+    box-shadow 120ms ease;
 }
 
 .task-card:hover {
-  border-color: var(--border-strong);
-  background-color: var(--surface-elevated);
+  border-color:
+    var(--border-strong);
+
+  background-color:
+    var(--surface-elevated);
+
   text-decoration: none;
 }
 
 .task-card__title {
+  margin: 0;
+
+  color: var(--text-primary);
+
   font-size: 1rem;
+  font-weight: 650;
 }
 
 .task-card__repo {
   color: var(--text-secondary);
 }
 
+
+/* =========================================================
+   TASK META
+   ========================================================= */
+
 .task-card__meta {
   display: flex;
+
   width: 100%;
+
   gap: 28px;
+
   margin: auto 0 0;
+
   padding-top: 14px;
-  border-top: 1px solid var(--border);
+
+  border-top:
+    1px solid var(--border);
 }
 
 .task-card__metric dt {
   color: var(--text-secondary);
+
   font-size: 0.75rem;
+
   letter-spacing: 0.04em;
+
   text-transform: uppercase;
 }
 
 .task-card__metric dd {
   display: flex;
+
   align-items: center;
+
   gap: 6px;
+
   margin: 4px 0 0;
+
+  color: var(--text-primary);
+
   font-weight: 600;
 }
 
@@ -108,25 +359,55 @@
   color: var(--success);
 }
 
-/* Estados de carga, error y vacio */
+
+/* =========================================================
+   SKELETON
+   ========================================================= */
 
 .task-card--skeleton {
   gap: 14px;
+
   cursor: default;
+}
+
+.task-card--skeleton:hover {
+  background-color: inherit;
+
+  border-color: var(--border);
 }
 
 .task-card--skeleton .task-card__meta {
   display: block;
 }
 
+
+/* =========================================================
+   LOADING / ERROR / EMPTY
+   ========================================================= */
+
 .tasks__state {
   display: flex;
+
+  min-height: 200px;
+
   flex-direction: column;
+
   align-items: center;
+  justify-content: center;
+
   gap: 12px;
+
   margin-top: 20px;
+
   padding: 44px 24px;
+
+  color: var(--text-primary);
+
   text-align: center;
+}
+
+.tasks__state-icon {
+  color: var(--text-secondary);
 }
 
 .tasks__state-icon--error {
@@ -134,15 +415,164 @@
 }
 
 .tasks__state-title {
+  margin: 0;
+
+  color: var(--text-primary);
+
   font-size: 1.0625rem;
+  font-weight: 650;
 }
 
 .tasks__state-text {
   max-width: 44ch;
+
+  margin: 0;
+
   color: var(--text-secondary);
+
   font-size: 0.9375rem;
+
+  line-height: 1.55;
 }
 
-.tasks__state .button {
+.tasks__state .button,
+.tasks__state .marketplace-create-button {
   margin-top: 6px;
+}
+
+
+/* =========================================================
+   ERROR DETAILS
+   ========================================================= */
+
+.error-details {
+  max-width: 520px;
+
+  color: var(--text-secondary);
+
+  font-size: 0.8125rem;
+}
+
+.error-details summary {
+  cursor: pointer;
+
+  color: var(--text-secondary);
+
+  user-select: none;
+}
+
+.error-details summary:hover {
+  color: var(--text-primary);
+}
+
+.error-details p {
+  margin: 10px 0 0;
+
+  color: var(--text-secondary);
+
+  line-height: 1.5;
+
+  overflow-wrap: anywhere;
+}
+
+
+/* =========================================================
+   THEME
+   ========================================================= */
+
+html[data-theme='light']
+.tasks__state,
+html[data-theme='light']
+.task-card {
+  color: var(--text-primary);
+}
+
+html[data-theme='light']
+.tasks__state-title,
+html[data-theme='light']
+.tasks__title,
+html[data-theme='light']
+.task-card__title {
+  color: var(--text-primary);
+}
+
+html[data-theme='dark']
+.tasks__state,
+html[data-theme='dark']
+.task-card {
+  color: var(--text-primary);
+}
+
+
+/* =========================================================
+   TABLET
+   ========================================================= */
+
+@media (width <= 900px) {
+
+  .hero {
+    margin-bottom: 44px;
+  }
+
+  .tasks__grid {
+    grid-template-columns:
+      repeat(
+        auto-fill,
+        minmax(250px, 1fr)
+      );
+  }
+
+}
+
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (width <= 600px) {
+
+  .hero {
+    max-width: none;
+
+    margin-bottom: 36px;
+  }
+
+  .hero__title {
+    font-size:
+      clamp(
+        2rem,
+        9vw,
+        2.6rem
+      );
+  }
+
+  .hero__lede {
+    font-size: 0.975rem;
+  }
+
+  .hero__actions {
+    margin-top: 22px;
+  }
+
+  .hero__actions
+  .marketplace-create-button {
+    width: 100%;
+  }
+
+  .tasks__head {
+    align-items: flex-start;
+
+    flex-direction: column;
+  }
+
+  .tasks__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tasks__state {
+    min-height: 180px;
+
+    padding: 36px 18px;
+  }
+
 }

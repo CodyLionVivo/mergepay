@@ -1,36 +1,590 @@
-.mergepay-wallet { min-width: 0; display: flex; flex-direction: column; align-items: center; }
-.mergepay-wallet__title { align-self: stretch; margin-bottom: 26px; padding-bottom: 14px; border-bottom: 1px solid var(--border); font-size: .85rem; font-weight: 550; color: var(--text-secondary); }
-.mergepay-card { display: block; width: min(100%, 280px); aspect-ratio: 1.586; padding: 0; border: 0; border-radius: 17px; background: transparent; color: var(--text-primary); font: inherit; text-align: left; cursor: pointer; perspective: 1000px; }
-.mergepay-card .flip-card-inner { display: block; position: relative; width: 100%; height: 100%; transform-style: preserve-3d; transition: transform 240ms ease; border-radius: inherit; }
-/* Hover, click/tap and native button keyboard activation all update the same React state. */
-.mergepay-card.is-flipped .flip-card-inner { transform: rotateY(180deg); }
+/* =========================================================
+   WALLET
+   ========================================================= */
+
+.mergepay-wallet {
+  min-width: 0;
+
+  display: flex;
+  flex-direction: column;
+
+  align-items: center;
+}
+
+
+.mergepay-wallet__title {
+  align-self: stretch;
+
+  margin-bottom: 26px;
+  padding-bottom: 14px;
+
+  border-bottom: 1px solid var(--border);
+
+  color: var(--text-secondary);
+
+  font-size: 0.85rem;
+  font-weight: 550;
+}
+
+
+/* =========================================================
+   CARD
+   ========================================================= */
+
+.mergepay-card {
+  display: block;
+
+  width: min(100%, 280px);
+
+  aspect-ratio: 1.586;
+
+  padding: 0;
+
+  border: 0;
+  border-radius: 17px;
+
+  background: transparent;
+
+  color: var(--text-primary);
+
+  font: inherit;
+
+  text-align: left;
+
+  cursor: pointer;
+
+  perspective: 1000px;
+}
+
+
+.mergepay-card .flip-card-inner {
+  display: block;
+
+  position: relative;
+
+  width: 100%;
+  height: 100%;
+
+  border-radius: inherit;
+
+  transform-style: preserve-3d;
+
+  transition: transform 240ms ease;
+}
+
+
+.mergepay-card.is-flipped .flip-card-inner {
+  transform: rotateY(180deg);
+}
+
+
+/* =========================================================
+   CARD FACES
+   ========================================================= */
+
 .mergepay-card .flip-card-front,
-.mergepay-card .flip-card-back { position: absolute; inset: 0; border: 1px solid #a59bc545; border-radius: inherit; overflow: hidden; backface-visibility: hidden; -webkit-backface-visibility: hidden; box-shadow: 0 14px 28px #0005, inset 0 1px 0 #ffffff14; background: radial-gradient(circle at 15% 15%, #22d3ee2e, transparent 32%), radial-gradient(ellipse at 90% 100%, #653ec533, transparent 60%), linear-gradient(135deg, #111827, #17152f 55%, #101828); }
-.mergepay-card .flip-card-front { display: grid; grid-template-rows: 20px 36px 14px 24px auto; gap: 3px; padding: 14px 18px; }
-.mergepay-card .flip-card-front::after { content: ''; position: absolute; width: 210px; height: 210px; border: 1px solid #9a93dc12; border-radius: 50%; right: -105px; top: -15px; pointer-events: none; box-shadow: 0 0 0 24px #9a93dc06, 0 0 0 48px #9a93dc04; }
-.mergepay-card__brand { display: inline-flex; justify-self: end; align-items: center; gap: 5px; font-size: .72rem; font-weight: 650; letter-spacing: .035em; }
-.mergepay-card__brand img { width: 23px; height: 23px; object-fit: contain; }
-.mergepay-card__hardware { display: flex; align-items: center; justify-content: space-between; }
-.mergepay-card__chip { width: 39px; height: 29px; color: #bebbaa; filter: drop-shadow(0 1px 2px #0006); }
-.mergepay-card__contactless { width: 24px; height: 29px; color: #afb5ca; }
-.mergepay-card__network { font: .58rem ui-monospace, monospace; letter-spacing: .1em; text-transform: uppercase; color: #acb8ce; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mergepay-card__address { align-self: center; font: .92rem ui-monospace, monospace; letter-spacing: .08em; text-transform: uppercase; color: #e5e5f2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-shadow: 0 1px 1px #0008; }
-.mergepay-card__state { align-self: end; font-size: .55rem; text-transform: uppercase; letter-spacing: .09em; color: #b8b8d7; }
-.mergepay-card .flip-card-back { transform: rotateY(180deg); display: flex; flex-direction: column; padding-top: 16px; }
-.mergepay-card__stripe { display: block; height: 29px; flex-shrink: 0; background: linear-gradient(#030610, #090c13); border-block: 1px solid #000a; }
-.mergepay-card__back-content { display: flex; flex: 1; min-height: 0; flex-direction: column; gap: 7px; padding: 10px 18px 13px; }
-.mergepay-card__back-title { color: #c6c8dc; font-size: .56rem; text-transform: uppercase; letter-spacing: .18em; }
-.mergepay-card__signature-strip { display: block; padding: 5px 8px; color: #d9dfef; background: repeating-linear-gradient(0deg, #dce3fc10, #dce3fc10 1px, #dce3fc04 1px, #dce3fc04 3px); border-radius: 3px; font: .63rem ui-monospace, monospace; }
-.mergepay-card__session { color: #b6bbd2; font-size: .59rem; }
-.mergepay-card__back-footer { display: flex; justify-content: space-between; gap: 10px; margin-top: auto; color: #99a8c4; font-size: .55rem; }
-.mergepay-wallet__hint { display: flex; gap: 6px; align-items: center; justify-content: center; color: var(--text-muted); font-size: .67rem; margin: 13px 0 18px; }
-.mergepay-wallet__control { width: min(100%, 280px); display: flex; flex-direction: column; align-items: stretch; gap: 10px; text-align: center; }
-.mergepay-wallet__control .auth-button { justify-content: center; }
-.mergepay-wallet__notice { display: flex; justify-content: center; gap: 5px; align-items: center; font-size: .72rem; line-height: 1.6; color: var(--text-secondary); }
-.mergepay-wallet__notice svg { flex-shrink: 0; }
-.mergepay-wallet__authenticated { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 8px; font-size: .8rem; }
-.mergepay-wallet__authenticated > span { width: 6px; height: 6px; border-radius: 50%; background: var(--success); }
-.mergepay-wallet__authenticated code { flex-basis: 100%; color: var(--text-secondary); }
+.mergepay-card .flip-card-back {
+  position: absolute;
+
+  inset: 0;
+
+  border: 1px solid #a59bc545;
+  border-radius: inherit;
+
+  overflow: hidden;
+
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+
+  box-shadow:
+    0 14px 28px #0005,
+    inset 0 1px 0 #ffffff14;
+
+  background:
+    radial-gradient(
+      circle at 15% 15%,
+      #22d3ee2e,
+      transparent 32%
+    ),
+    radial-gradient(
+      ellipse at 90% 100%,
+      #653ec533,
+      transparent 60%
+    ),
+    linear-gradient(
+      135deg,
+      #111827,
+      #17152f 55%,
+      #101828
+    );
+}
+
+
+/* =========================================================
+   FRONT
+   ========================================================= */
+
+.mergepay-card .flip-card-front {
+  display: grid;
+
+  grid-template-rows:
+    20px
+    36px
+    14px
+    24px
+    auto;
+
+  gap: 3px;
+
+  padding: 14px 18px;
+}
+
+
+.mergepay-card .flip-card-front::after {
+  content: '';
+
+  position: absolute;
+
+  width: 210px;
+  height: 210px;
+
+  right: -105px;
+  top: -15px;
+
+  border: 1px solid #9a93dc12;
+  border-radius: 50%;
+
+  pointer-events: none;
+
+  box-shadow:
+    0 0 0 24px #9a93dc06,
+    0 0 0 48px #9a93dc04;
+}
+
+
+/* =========================================================
+   BRAND
+   ========================================================= */
+
+.mergepay-card__brand {
+  display: inline-flex;
+
+  justify-self: end;
+
+  align-items: center;
+
+  gap: 5px;
+
+  color: #f7f7fb;
+
+  font-size: 0.72rem;
+  font-weight: 650;
+
+  letter-spacing: 0.035em;
+}
+
+
+.mergepay-card__brand img {
+  width: 23px;
+  height: 23px;
+
+  object-fit: contain;
+}
+
+
+/* =========================================================
+   HARDWARE
+   ========================================================= */
+
+.mergepay-card__hardware {
+  display: flex;
+
+  align-items: center;
+  justify-content: space-between;
+}
+
+
+.mergepay-card__chip {
+  width: 39px;
+  height: 29px;
+
+  color: #bebbaa;
+
+  filter: drop-shadow(
+    0 1px 2px #0006
+  );
+}
+
+
+.mergepay-card__contactless {
+  width: 24px;
+  height: 29px;
+
+  color: #afb5ca;
+}
+
+
+/* =========================================================
+   NETWORK
+   ========================================================= */
+
+.mergepay-card__network {
+  overflow: hidden;
+
+  color: #acb8ce;
+
+  font:
+    0.58rem
+    ui-monospace,
+    monospace;
+
+  letter-spacing: 0.1em;
+
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+
+  white-space: nowrap;
+}
+
+
+/* =========================================================
+   ADDRESS
+   ========================================================= */
+
+.mergepay-card__address {
+  align-self: center;
+
+  overflow: hidden;
+
+  color: #e5e5f2;
+
+  font:
+    0.92rem
+    ui-monospace,
+    monospace;
+
+  letter-spacing: 0.08em;
+
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+
+  white-space: nowrap;
+
+  text-shadow: 0 1px 1px #0008;
+}
+
+
+/* =========================================================
+   STATE
+   ========================================================= */
+
+.mergepay-card__state {
+  align-self: end;
+
+  color: #b8b8d7;
+
+  font-size: 0.55rem;
+
+  letter-spacing: 0.09em;
+
+  text-transform: uppercase;
+}
+
+
+/* =========================================================
+   BACK
+   ========================================================= */
+
+.mergepay-card .flip-card-back {
+  display: flex;
+
+  flex-direction: column;
+
+  padding-top: 16px;
+
+  transform: rotateY(180deg);
+}
+
+
+.mergepay-card__stripe {
+  display: block;
+
+  height: 29px;
+
+  flex-shrink: 0;
+
+  border-block: 1px solid #000a;
+
+  background:
+    linear-gradient(
+      #030610,
+      #090c13
+    );
+}
+
+
+.mergepay-card__back-content {
+  display: flex;
+
+  flex: 1;
+
+  min-height: 0;
+
+  flex-direction: column;
+
+  gap: 7px;
+
+  padding: 10px 18px 13px;
+}
+
+
+.mergepay-card__back-title {
+  color: #c6c8dc;
+
+  font-size: 0.56rem;
+
+  letter-spacing: 0.18em;
+
+  text-transform: uppercase;
+}
+
+
+.mergepay-card__signature-strip {
+  display: block;
+
+  padding: 5px 8px;
+
+  border-radius: 3px;
+
+  background:
+    repeating-linear-gradient(
+      0deg,
+      #dce3fc10,
+      #dce3fc10 1px,
+      #dce3fc04 1px,
+      #dce3fc04 3px
+    );
+
+  color: #d9dfef;
+
+  font:
+    0.63rem
+    ui-monospace,
+    monospace;
+}
+
+
+.mergepay-card__session {
+  color: #b6bbd2;
+
+  font-size: 0.59rem;
+}
+
+
+.mergepay-card__back-footer {
+  display: flex;
+
+  justify-content: space-between;
+
+  gap: 10px;
+
+  margin-top: auto;
+
+  color: #99a8c4;
+
+  font-size: 0.55rem;
+}
+
+
+/* =========================================================
+   FLIP HINT
+   ========================================================= */
+
+.mergepay-wallet__hint {
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  gap: 6px;
+
+  margin: 13px 0 18px;
+
+  color: var(--text-secondary);
+
+  font-size: 0.67rem;
+}
+
+
+/* =========================================================
+   CONTROLS
+   ========================================================= */
+
+.mergepay-wallet__control {
+  display: flex;
+
+  width: min(100%, 280px);
+
+  flex-direction: column;
+
+  align-items: stretch;
+
+  gap: 10px;
+
+  text-align: center;
+}
+
+
+.mergepay-wallet__control .auth-button {
+  justify-content: center;
+}
+
+
+/* =========================================================
+   NOTICES
+   ========================================================= */
+
+.mergepay-wallet__notice {
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  gap: 5px;
+
+  color: var(--text-secondary);
+
+  font-size: 0.72rem;
+
+  line-height: 1.6;
+}
+
+
+.mergepay-wallet__notice svg {
+  flex-shrink: 0;
+}
+
+
+/* =========================================================
+   AUTHENTICATED
+   ========================================================= */
+
+.mergepay-wallet__authenticated {
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  flex-wrap: wrap;
+
+  gap: 8px;
+
+  color: var(--text-primary);
+
+  font-size: 0.8rem;
+}
+
+
+.mergepay-wallet__authenticated > span {
+  width: 6px;
+  height: 6px;
+
+  border-radius: 50%;
+
+  background: var(--success);
+}
+
+
+.mergepay-wallet__authenticated code {
+  flex-basis: 100%;
+
+  color: var(--text-secondary);
+}
+
+
+/* =========================================================
+   CHANGE WALLET
+   Secondary action — intentionally subtle.
+   ========================================================= */
+
+.mergepay-wallet__change {
+  display: inline-flex;
+
+  align-self: center;
+
+  align-items: center;
+  justify-content: center;
+
+  gap: 6px;
+
+  margin-top: 2px;
+  padding: 5px 9px;
+
+  border: 0;
+
+  background: transparent;
+
+  color: var(--text-secondary);
+
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 500;
+
+  cursor: pointer;
+
+  transition:
+    color 120ms ease,
+    opacity 120ms ease;
+}
+
+
+.mergepay-wallet__change:hover:not(:disabled) {
+  color: var(--danger);
+}
+
+
+.mergepay-wallet__change:disabled {
+  cursor: wait;
+
+  opacity: 0.5;
+}
+
+
+/* =========================================================
+   LIGHT MODE
+   Card remains intentionally dark.
+   ========================================================= */
+
+html[data-theme='light']
+.mergepay-card__brand {
+  color: #f7f7fb;
+}
+
+
+html[data-theme='light']
+.mergepay-card__address {
+  color: #e5e5f2;
+}
+
+
+html[data-theme='light']
+.mergepay-card__state {
+  color: #b8b8d7;
+}
+
+
+html[data-theme='light']
+.mergepay-card__network {
+  color: #acb8ce;
+}
+
+
+/* =========================================================
+   REDUCED MOTION
+   ========================================================= */
+
 @media (prefers-reduced-motion: reduce) {
-  .mergepay-card .flip-card-inner { transition: none; }
+  .mergepay-card .flip-card-inner {
+    transition: none;
+  }
 }

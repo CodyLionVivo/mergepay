@@ -1,112 +1,836 @@
+/* =========================================================
+   MERGEPAY THEME SYSTEM
+   Light = default
+   Dark  = secondary theme
+   ========================================================= */
+
+
+/* =========================================================
+   LIGHT THEME — DEFAULT
+   ========================================================= */
+
+:root,
+html[data-theme='light'] {
+  color-scheme: light;
+
+  --background: #f8f9fc;
+  --background-secondary: #ffffff;
+
+  --surface: #ffffff;
+  --surface-elevated: #f4f5f9;
+
+  --text-primary: #171923;
+  --text-secondary: #626b7a;
+  --text-muted: #8991a1;
+
+  --border: #e2e5ec;
+  --border-strong: #cdd2dc;
+
+  --primary: #7559e8;
+  --primary-hover: #6448d8;
+
+  --success: #168568;
+  --danger: #d94d63;
+
+  --header-background: rgb(248 249 252 / 92%);
+}
+
+
+/* =========================================================
+   DARK THEME
+   ========================================================= */
+
+html[data-theme='dark'] {
+  color-scheme: dark;
+
+  --background: #080b14;
+  --background-secondary: #0b0f1a;
+
+  --surface: #0f1524;
+  --surface-elevated: #12192a;
+
+  --text-primary: #f4f6fb;
+  --text-secondary: #a4aec0;
+  --text-muted: #778197;
+
+  --border: rgba(255, 255, 255, 0.10);
+  --border-strong: rgba(155, 130, 246, 0.32);
+
+  --primary: #9b82f6;
+  --primary-hover: #aa95fa;
+
+  --success: #43c99c;
+  --danger: #f07182;
+
+  --header-background: rgb(8 11 20 / 92%);
+}
+
+
+/* =========================================================
+   DOCUMENT
+   ========================================================= */
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+html {
+  background: var(--background);
+}
+
+body {
+  margin: 0;
+
+  color: var(--text-primary);
+  background: var(--background);
+
+  transition:
+    background-color 200ms ease,
+    color 200ms ease;
+}
+
+
+/* =========================================================
+   APPLICATION
+   ========================================================= */
+
 .app {
   display: flex;
+
   min-height: 100vh;
+
   flex-direction: column;
+
+  color: var(--text-primary);
+  background: var(--background);
+
+  transition:
+    background-color 200ms ease,
+    color 200ms ease;
 }
+
+
+/* =========================================================
+   HEADER / NAVBAR
+   ========================================================= */
 
 .app__header {
   position: sticky;
   top: 0;
-  z-index: 10;
+  z-index: 100;
+
   border-bottom: 1px solid var(--border);
-  background-color: rgb(11 14 20 / 92%);
-  backdrop-filter: blur(8px);
+
+  /* IMPORTANTE: nada de colores hardcodeados */
+  background-color: var(--header-background);
+
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+
+  transition:
+    background-color 220ms ease,
+    border-color 220ms ease,
+    box-shadow 220ms ease;
 }
+
+
+/* LIGHT NAVBAR */
+
+html[data-theme='light'] .app__header {
+  background-color: rgb(255 255 255 / 88%);
+
+  border-bottom-color: rgba(23, 25, 35, 0.08);
+
+  box-shadow:
+    0 1px 0 rgba(23, 25, 35, 0.03),
+    0 8px 30px rgba(23, 25, 35, 0.025);
+}
+
+
+/* DARK NAVBAR */
+
+html[data-theme='dark'] .app__header {
+  background-color: rgb(8 11 20 / 88%);
+
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
 
 .app__header-inner {
   display: flex;
+
   min-height: 60px;
+
   align-items: center;
-  gap: 20px;
+
+  gap: 14px;
+
   padding-block: 12px;
 }
+
+
+/* =========================================================
+   BRAND
+   ========================================================= */
 
 .brand {
   display: inline-flex;
   align-items: center;
   gap: 9px;
+
   color: var(--text-primary);
+
   font-weight: 650;
   letter-spacing: -0.02em;
+
+  transition:
+    color 200ms ease,
+    opacity 150ms ease;
 }
 
 .brand:hover {
+  color: var(--text-primary);
   text-decoration: none;
+  opacity: 0.9;
+}
+
+.brand__name {
+  color: var(--text-primary);
 }
 
 .brand__mark {
   color: var(--primary);
 }
 
-.brand__name {
-  font-size: 1.0625rem;
-}
+/* =========================================================
+   NETWORK LABEL
+   ========================================================= */
 
-.app__nav {
-  display: flex;
-  flex: 1;
+.network-label {
+  display: inline-flex;
+
   align-items: center;
-  gap: 4px;
-}
 
-.app__nav-link {
-  padding: 7px 12px;
-  border-radius: var(--radius-sm);
+  min-height: 22px;
+
+  padding: 2px 7px;
+
+  border: 1px solid var(--border-strong);
+
+  border-radius: 4px;
+
   color: var(--text-secondary);
-  font-size: 0.9375rem;
+
+  background: var(--surface);
+
+  font-size: 0.625rem;
+
+  font-weight: 650;
+
+  letter-spacing: 0.08em;
+
+  text-transform: uppercase;
+
+  transition:
+    color 200ms ease,
+    background-color 200ms ease,
+    border-color 200ms ease;
+}
+
+/* =========================================================
+   THEME TOGGLE
+   ========================================================= */
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  min-height: 34px;
+
+  gap: 7px;
+  padding: 6px 10px;
+
+  border: 1px solid transparent;
+  border-radius: 8px;
+
+  color: var(--text-secondary);
+  background: transparent;
+
+  font: inherit;
+  font-size: 0.8125rem;
   font-weight: 550;
+
+  cursor: pointer;
+
+  transition:
+    color 150ms ease,
+    background-color 150ms ease,
+    border-color 150ms ease;
 }
 
-.app__nav-link:hover {
-  background-color: var(--surface);
+.theme-toggle:hover {
   color: var(--text-primary);
-  text-decoration: none;
+
+  background: var(--surface);
+  border-color: var(--border);
 }
 
-/* El estado activo lleva subrayado ademas de color. */
-.app__nav-link--active {
-  background-color: var(--surface);
-  color: var(--text-primary);
-  box-shadow: inset 0 -2px 0 var(--primary);
+.theme-toggle:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
+
+
+/* LIGHT */
+
+html[data-theme='light'] .theme-toggle {
+  color: #444b59;
+}
+
+html[data-theme='light'] .theme-toggle:hover {
+  color: #171923;
+  background: #f1f2f7;
+}
+
+
+/* DARK */
+
+html[data-theme='dark'] .theme-toggle {
+  color: #a4aec0;
+}
+
+html[data-theme='dark'] .theme-toggle:hover {
+  color: #f4f6fb;
+  background: #12192a;
+}
+
+/* =========================================================
+   NAVIGATION / ACCOUNT AREA
+   ========================================================= */
+
+.app__navigation {
+  display: flex;
+
+  flex: 1;
+
+  align-items: center;
+
+  justify-content: flex-end;
+}
+
 
 .app__status {
   display: flex;
+
   flex-wrap: wrap;
+
   align-items: center;
+
   justify-content: flex-end;
+
   gap: 8px;
 }
 
+
+/* =========================================================
+   MAIN
+   ========================================================= */
+
 .app__main {
   flex: 1;
+
+  color: var(--text-primary);
+
+  background: var(--background);
+
   padding-block: 40px 72px;
+
+  transition:
+    color 200ms ease,
+    background-color 200ms ease;
 }
 
-/* En pantallas estrechas el header pasa a dos filas: marca y estado arriba,
-   navegacion debajo. Sin menu desplegable. */
+
+/* =========================================================
+   FOOTER
+   ========================================================= */
+
+.app__footer {
+  display: flex;
+
+  align-items: center;
+
+  justify-content: space-between;
+
+  gap: 20px;
+
+  min-height: 64px;
+
+  border-top: 1px solid var(--border);
+
+  color: var(--text-secondary);
+
+  background: var(--background);
+
+  font-size: 0.8125rem;
+
+  transition:
+    color 200ms ease,
+    background-color 200ms ease,
+    border-color 200ms ease;
+}
+
+
+/* =========================================================
+   GENERIC SURFACES
+   Esto evita cards blancas con texto blanco.
+   ========================================================= */
+
+.panel,
+.card {
+  color: var(--text-primary);
+
+  background: var(--surface);
+
+  border-color: var(--border);
+
+  transition:
+    color 200ms ease,
+    background-color 200ms ease,
+    border-color 200ms ease;
+}
+
+/* =========================================================
+   LANGUAGE SELECTOR
+   ========================================================= */
+
+.language-selector {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.language-selector select {
+  min-height: 34px;
+
+  padding: 5px 28px 5px 9px;
+
+  border: 1px solid var(--border);
+  border-radius: 8px;
+
+  color: var(--text-primary);
+  background-color: var(--surface);
+
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 550;
+
+  cursor: pointer;
+
+  transition:
+    color 150ms ease,
+    background-color 150ms ease,
+    border-color 150ms ease;
+}
+
+.language-selector select:hover {
+  border-color: var(--border-strong);
+}
+
+.language-selector select:focus {
+  border-color: var(--primary);
+  outline: 2px solid color-mix(in srgb, var(--primary) 20%, transparent);
+  outline-offset: 1px;
+}
+
+
+/* Opciones */
+
+.language-selector select option {
+  color: var(--text-primary);
+  background-color: var(--surface);
+}
+
+
+/* =========================================================
+   LIGHT
+   ========================================================= */
+
+html[data-theme='light'] .language-selector select {
+  color: #171923;
+  background-color: #ffffff;
+  border-color: #d9dde7;
+}
+
+html[data-theme='light'] .language-selector select option {
+  color: #171923;
+  background-color: #ffffff;
+}
+
+
+/* =========================================================
+   DARK
+   ========================================================= */
+
+html[data-theme='dark'] .language-selector select {
+  color: #f4f6fb;
+  background-color: #0f1524;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+html[data-theme='dark'] .language-selector select option {
+  color: #f4f6fb;
+  background-color: #0f1524;
+}
+
+
+/* =========================================================
+   HEADINGS
+   ========================================================= */
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  color: var(--text-primary);
+}
+
+
+/* =========================================================
+   PARAGRAPHS
+   ========================================================= */
+
+p {
+  transition: color 200ms ease;
+}
+
+
+/* =========================================================
+   MARKETPLACE
+   ========================================================= */
+
+.hero__title {
+  color: var(--text-primary);
+}
+
+
+.hero__lede {
+  color: var(--text-secondary);
+}
+
+
+.hero__eyebrow {
+  color: var(--primary);
+}
+
+
+.marketplace-network {
+  color: var(--text-secondary);
+}
+
+
+.tasks__title {
+  color: var(--text-primary);
+}
+
+
+.tasks__note {
+  color: var(--text-secondary);
+}
+
+
+.tasks__head {
+  border-color: var(--border);
+}
+
+
+/* =========================================================
+   TASK CARDS
+   ========================================================= */
+
+.task-card {
+  color: var(--text-primary);
+
+  background: var(--surface);
+
+  border-color: var(--border);
+}
+
+
+.task-card:hover {
+  color: var(--text-primary);
+
+  background: var(--surface-elevated);
+
+  border-color: var(--border-strong);
+}
+
+
+.task-card__title {
+  color: var(--text-primary);
+}
+
+
+.task-card__repo {
+  color: var(--text-secondary);
+}
+
+
+.task-card__metric dt {
+  color: var(--text-secondary);
+}
+
+
+.task-card__metric dd {
+  color: var(--text-primary);
+}
+
+
+.task-card__reward {
+  color: var(--success);
+}
+
+
+/* =========================================================
+   TASK STATE / ERROR / EMPTY
+   ========================================================= */
+
+.tasks__state {
+  color: var(--text-primary);
+
+  background: var(--surface);
+
+  border-color: var(--border);
+}
+
+
+.tasks__state-title {
+  color: var(--text-primary);
+}
+
+
+.tasks__state-text {
+  color: var(--text-secondary);
+}
+
+
+.tasks__state-icon--error {
+  color: var(--primary);
+}
+
+
+.error-details {
+  color: var(--text-secondary);
+}
+
+
+.error-details summary {
+  color: var(--text-secondary);
+
+  cursor: pointer;
+}
+
+
+.error-details p {
+  color: var(--text-secondary);
+}
+
+
+/* =========================================================
+   PRODUCT FLOW
+   ========================================================= */
+
+.product-flow {
+  color: var(--text-primary);
+}
+
+
+.product-flow .section-heading h2 {
+  color: var(--text-primary);
+}
+
+
+.product-flow .section-heading > p {
+  color: var(--text-secondary);
+}
+
+
+.product-flow__track li {
+  color: var(--text-primary);
+
+  background: var(--surface);
+
+  border-color: var(--border);
+}
+
+
+.product-flow__track h3 {
+  color: var(--text-primary);
+}
+
+
+.product-flow__track p {
+  color: var(--text-secondary);
+}
+
+
+.product-flow__top {
+  color: var(--primary);
+}
+
+
+/* =========================================================
+   BUTTONS
+   ========================================================= */
+
+.button--primary {
+  color: #ffffff;
+
+  background: var(--primary);
+
+  border-color: var(--primary);
+}
+
+
+.button--primary:hover {
+  color: #ffffff;
+
+  background: var(--primary-hover);
+
+  border-color: var(--primary-hover);
+}
+
+
+.button--secondary {
+  color: var(--text-primary);
+
+  background: var(--surface);
+
+  border-color: var(--border-strong);
+}
+
+
+.button--secondary:hover {
+  color: var(--text-primary);
+
+  background: var(--surface-elevated);
+}
+
+
+/* =========================================================
+   MOBILE NAVIGATION TOGGLE
+   ========================================================= */
+
+.nav-toggle {
+  display: none;
+
+  align-items: center;
+
+  justify-content: center;
+
+  width: 38px;
+
+  height: 38px;
+
+  padding: 0;
+
+  border: 1px solid var(--border);
+
+  border-radius: 8px;
+
+  color: var(--text-primary);
+
+  background: var(--surface);
+
+  cursor: pointer;
+}
+
+
+.nav-toggle:hover {
+  background: var(--surface-elevated);
+}
+
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
 @media (width <= 720px) {
+
   .app__header-inner {
     flex-wrap: wrap;
-    gap: 12px;
+
+    gap: 10px;
   }
+
 
   .brand {
     flex: 1;
   }
 
-  .app__nav {
-    order: 3;
-    width: 100%;
-    flex: none;
-    gap: 6px;
+
+  .theme-toggle__label {
+    display: none;
   }
 
-  .app__nav-link {
-    padding-inline: 10px;
+
+  .theme-toggle {
+    width: 36px;
+
+    height: 36px;
+
+    padding: 0;
   }
+
+
+  .nav-toggle {
+    display: inline-flex;
+  }
+
+
+  .app__navigation {
+    display: none;
+
+    order: 10;
+
+    width: 100%;
+
+    flex: none;
+  }
+
+
+  .app__navigation.is-expanded {
+    display: flex;
+  }
+
+
+  .app__status {
+    width: 100%;
+
+    justify-content: flex-end;
+
+    padding-top: 8px;
+
+    border-top: 1px solid var(--border);
+  }
+
 
   .app__main {
     padding-block: 28px 56px;
+  }
+
+
+  .app__footer {
+    flex-wrap: wrap;
+
+    padding-block: 16px;
   }
 }

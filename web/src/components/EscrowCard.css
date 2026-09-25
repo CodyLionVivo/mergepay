@@ -1,0 +1,59 @@
+/* =========================================================
+   ESCROW CARD
+   La tarjeta siempre es oscura, incluso en Light Mode
+   ========================================================= */
+
+.escrow-card {
+  color: #f7f7fb;
+}
+
+.escrow-card h1,
+.escrow-card h2,
+.escrow-card h3,
+.escrow-card strong,
+.escrow-card .brand__name {
+  color: #f7f7fb;
+}
+
+/* Textos secundarios dentro de la tarjeta */
+.escrow-card p,
+.escrow-card span,
+.escrow-card small,
+.escrow-card dt {
+  color: #b9bfd0;
+}
+
+/* Valor principal: 250 */
+.escrow-card dd,
+.escrow-card__amount,
+.escrow-card__value {
+  color: #ffffff;
+}
+
+/* XLM */
+.escrow-card__currency {
+  color: #c9c5ff;
+}
+
+/* Evita que Light Mode convierta el texto de la tarjeta a negro */
+html[data-theme='light'] .escrow-card,
+html[data-theme='light'] .escrow-card h1,
+html[data-theme='light'] .escrow-card h2,
+html[data-theme='light'] .escrow-card h3,
+html[data-theme='light'] .escrow-card strong,
+html[data-theme='light'] .escrow-card .brand__name {
+  color: #f7f7fb;
+}
+
+html[data-theme='light'] .escrow-card p,
+html[data-theme='light'] .escrow-card span,
+html[data-theme='light'] .escrow-card small,
+html[data-theme='light'] .escrow-card dt {
+  color: #b9bfd0;
+}
+
+html[data-theme='light'] .escrow-card dd,
+html[data-theme='light'] .escrow-card__amount,
+html[data-theme='light'] .escrow-card__value {
+  color: #ffffff;
+}
