@@ -314,16 +314,6 @@ export function VerificationPanel({
               </dd>
             </div>
           ) : null}
-          {bounty.release_tx_hash !== null ? (
-            <div>
-              <dt>Payout transaction</dt>
-              <dd>
-                <code title={bounty.release_tx_hash}>
-                  {abbreviateHash(bounty.release_tx_hash)}
-                </code>
-              </dd>
-            </div>
-          ) : null}
           {latest !== null ? (
             <>
               <div>
@@ -342,6 +332,12 @@ export function VerificationPanel({
           ) : null}
         </dl>
 
+        {bounty.release_tx_hash !== null ? (
+          <details className="technical-disclosure">
+            <summary>Payout transaction</summary>
+            <code>{bounty.release_tx_hash}</code>
+          </details>
+        ) : null}
         {details}
       </PanelFrame>
     )

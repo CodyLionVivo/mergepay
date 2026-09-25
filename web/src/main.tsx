@@ -8,6 +8,7 @@ import './index.css'
 import App from './App.tsx'
 import { AuthProvider } from './components/AuthProvider'
 import { WalletProvider } from './components/WalletProvider'
+import './design.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

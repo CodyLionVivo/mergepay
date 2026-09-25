@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, Plus, Trash2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { ApiError, createBounty } from '../api/client'
@@ -32,6 +32,10 @@ interface ValidForm {
 
 export function CreateBountyPage() {
   const navigate = useNavigate()
+  const [step, setStep] = useState(0)
+  const stepTitle = useRef<HTMLHeadingElement>(null)
+  const steps = ['Task', 'Acceptance', 'Reward', 'Review']
+  useEffect(() => { stepTitle.current?.focus() }, [step])
 
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -68,7 +72,7 @@ export function CreateBountyPage() {
   }
 
   /** Valida todo y devuelve el formulario listo para enviar, o null. */
-  function validate(): ValidForm | null {
+  function validate(currentStep = 3): ValidForm | null {
     const errors: FieldErrors = {}
 
     const trimmedTitle = title.trim()
@@ -116,6 +120,15 @@ export function CreateBountyPage() {
       entry === '' ? 'Describe this criterion.' : '',
     )
 
+    if (currentStep < 3) {
+      const fields: FieldName[] = currentStep === 0
+        ? ['title', 'description', 'repository', 'baseBranch']
+        : currentStep === 2 ? ['reward', 'deadline'] : []
+      for (const key of Object.keys(errors) as FieldName[]) {
+        if (!fields.includes(key)) delete errors[key]
+      }
+      if (currentStep !== 1) nextCriteriaErrors.fill('')
+    }
     setFieldErrors(errors)
     setCriteriaErrors(nextCriteriaErrors)
 
@@ -123,7 +136,14 @@ export function CreateBountyPage() {
       Object.keys(errors).length > 0 ||
       nextCriteriaErrors.some((message) => message !== '')
 
+    if (currentStep < 3) {
+      if (!hasErrors) setStep(currentStep + 1)
+      else requestAnimationFrame(() => document.querySelector<HTMLElement>('.task-form [aria-invalid="true"]')?.focus())
+      return null
+    }
     if (hasErrors || !parsedReward.ok || deadlineUnix === null) {
+      setStep(errors.title || errors.description || errors.repository || errors.baseBranch
+        ? 0 : nextCriteriaErrors.some(Boolean) ? 1 : 2)
       return null
     }
 
@@ -141,6 +161,7 @@ export function CreateBountyPage() {
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (step < 3) { validate(step); return }
 
     // Sin sesion no se envia nada: el client de la task sale de ella.
     if (submitting || !authenticated) {
@@ -187,13 +208,20 @@ export function CreateBountyPage() {
   return (
     <div className="shell">
       <PageHeader
-        eyebrow="New task"
-        title="Create a development task"
+        eyebrow="New bounty"
+        title="A clear brief. A secured reward."
         description="Define what needs to be built, how it will be verified, and the reward secured for the developer."
       />
 
-      <form className="task-form" onSubmit={handleSubmit} noValidate>
-        <section className="panel task-form__section">
+      <ol className="form-steps" aria-label="Create bounty progress">
+        {steps.map((label, index) => <li key={label} aria-current={step === index ? 'step' : undefined} className={index < step ? 'is-complete' : ''}><span>{index + 1}</span>{label}</li>)}
+      </ol>
+      <h2 className="wizard-title" ref={stepTitle} tabIndex={-1}>Step {step + 1} · {steps[step]}</h2>
+      <form className="task-form" onSubmit={handleSubmit} noValidate aria-busy={submitting}>
+        {Object.keys(fieldErrors).length > 0 || criteriaErrors.some(Boolean) ? (
+          <p className="field__error" role="alert">Review the highlighted fields before continuing.</p>
+        ) : null}
+        <section hidden={step !== 0} className="panel task-form__section">
           <h2 className="panel__title">Task</h2>
           <p className="panel__hint">What the developer is expected to deliver.</p>
 
@@ -236,7 +264,7 @@ export function CreateBountyPage() {
           </div>
         </section>
 
-        <section className="panel task-form__section">
+        <section hidden={step !== 0} className="panel task-form__section">
           <h2 className="panel__title">Repository</h2>
           <p className="panel__hint">Where the pull request will be opened.</p>
 
@@ -277,11 +305,10 @@ export function CreateBountyPage() {
           </div>
         </section>
 
-        <section className="panel task-form__section">
+        <section hidden={step !== 2} className="panel task-form__section">
           <h2 className="panel__title">Reward</h2>
           <p className="panel__hint">
-            Secured upfront and released automatically once every criterion
-            passes.
+            Funding happens after you create the draft. A passing GitHub verification triggers the backend payout attempt.
           </p>
 
           <div className="field-row">
@@ -321,11 +348,10 @@ export function CreateBountyPage() {
           </div>
         </section>
 
-        <fieldset className="panel task-form__section task-form__criteria">
+        <fieldset hidden={step !== 1} className="panel task-form__section task-form__criteria">
           <legend className="panel__title">Acceptance criteria</legend>
           <p className="panel__hint">
-            Each criterion is checked automatically before the reward is
-            released.
+            Define the agreed requirements. MergePay checks GitHub CI results; it does not evaluate each written criterion individually.
           </p>
 
           {criteria.map((entry, index) => (
@@ -368,6 +394,14 @@ export function CreateBountyPage() {
           </button>
         </fieldset>
 
+        {step === 1 ? <details className="technical-disclosure"><summary>Verification rules · fixed by MergePay</summary><p>Required checks: build, regression-tests, acceptance-tests. The PR must match the repository, base branch, base commit and assigned author, and remain open and non-draft.</p><p>Protected paths: .github/workflows/mergepay-ci.yml, requirements.txt, tests/regression/ and tests/acceptance/. Configure CI in your repository before funding.</p></details> : null}
+        {step === 3 ? <section className="panel review-summary">
+          <h2>{title}</h2><p className="detail-body">{description}</p>
+          <dl className="detail-list"><div><dt>Repository / base branch</dt><dd>{repository} / {baseBranch}</dd></div><div><dt>Reward · XLM display units</dt><dd>{reward}</dd></div><div><dt>Deadline · your local time</dt><dd>{deadline.replace('T', ' ')}</dd></div></dl>
+          <h3>Acceptance criteria</h3><ol>{criteria.map((entry, index) => <li key={index}>{entry}</li>)}</ol>
+          <p className="panel__hint">Next, confirm funding in Freighter. The bounty becomes public only after MergePay confirms the escrow. Verification eligibility is not payment confirmation.</p>
+        </section> : null}
+        {step === 2 ? <p className="panel__hint">Testnet only. Amounts use 7-decimal XLM display units. The API does not report the escrow token; confirm the deployment uses native XLM before funding.</p> : null}
         {submitError ? (
           <p className="task-form__submit-error" role="alert">
             <AlertTriangle size={16} aria-hidden="true" />
@@ -375,7 +409,7 @@ export function CreateBountyPage() {
           </p>
         ) : null}
 
-        {authenticated ? null : (
+        {authenticated || step !== 3 ? null : (
           <AuthPrompt
             message="Sign in with your Stellar wallet to create and own this task."
             hint="Your answers stay in the form while you sign in."
@@ -383,12 +417,13 @@ export function CreateBountyPage() {
         )}
 
         <div className="task-form__footer">
+          {step > 0 ? <button type="button" className="button button--secondary" disabled={submitting} onClick={() => setStep(step - 1)}>Back</button> : null}
           <button
             type="submit"
             className="button button--primary"
-            disabled={submitting || !authenticated}
+            disabled={submitting || (step === 3 && !authenticated)}
           >
-            {submitting ? 'Creating task...' : 'Create task'}
+            {submitting ? 'Creating draft...' : step === 3 ? 'Create draft & continue' : 'Continue'}
           </button>
           <p className="task-form__note">
             The task is created as a draft, owned by your wallet. Securing the

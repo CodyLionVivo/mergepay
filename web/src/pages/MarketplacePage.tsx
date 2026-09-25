@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { ApiError, getBounties } from '../api/client'
 import { BountyStatusBadge } from '../components/BountyStatusBadge'
 import type { Bounty } from '../types/bounty'
+import { formatUnixSeconds } from '../utils/format'
 import { formatXlm } from '../utils/xlm'
 import './MarketplacePage.css'
 
@@ -50,7 +51,7 @@ export function MarketplacePage() {
           token: reloadToken,
           state: 'error',
           bounties: [],
-          errorDetail: error instanceof ApiError ? error.message : '',
+          errorDetail: error instanceof ApiError ? error.message : 'We could not reach MergePay. Check your connection and try again.',
         })
       })
 
@@ -61,7 +62,7 @@ export function MarketplacePage() {
     <div className="shell">
       <section className="hero">
         <p className="hero__eyebrow">Automated rewards for verified code</p>
-        <h1 className="hero__title">Build. Verify. Get paid.</h1>
+        <h1 className="hero__title">Get paid when the code passes.</h1>
         <p className="hero__lede">
           Development tasks with rewards secured upfront and released when the
           agreed checks pass.
@@ -69,19 +70,20 @@ export function MarketplacePage() {
 
         <div className="hero__actions">
           <a className="button button--primary" href="#open-tasks">
-            Explore tasks
+            Explore bounties
             <ArrowRight size={16} aria-hidden="true" />
           </a>
           <Link className="button button--secondary" to="/bounties/new">
-            Create a task
+            Create bounty
           </Link>
         </div>
       </section>
 
+      <p className="marketplace-network">Stellar Testnet - Rewards shown in XLM display units</p>
       <section className="tasks" id="open-tasks" aria-labelledby="open-tasks-title">
         <div className="tasks__head">
           <h2 className="tasks__title" id="open-tasks-title">
-            Open tasks
+            Available bounties
           </h2>
           {state === 'ready' && bounties.length > 0 ? (
             <p className="tasks__note">
@@ -137,13 +139,13 @@ export function MarketplacePage() {
 
         {state === 'ready' && bounties.length === 0 ? (
           <div className="tasks__state panel">
-            <h3 className="tasks__state-title">No tasks yet</h3>
+            <h3 className="tasks__state-title">No available bounties</h3>
             <p className="tasks__state-text">
-              Create the first development task in MergePay.
+              Fund a bounty to make it available here. Drafts and assigned work are not publicly listed.
             </p>
             <Link className="button button--primary" to="/bounties/new">
               <Plus size={16} aria-hidden="true" />
-              Create a task
+              Create bounty
             </Link>
           </div>
         ) : null}
@@ -156,6 +158,7 @@ export function MarketplacePage() {
                   <BountyStatusBadge status={bounty.status} />
 
                   <h3 className="task-card__title">{bounty.title}</h3>
+                  <p className="task-card__description">{bounty.description}</p>
 
                   <p className="task-card__repo">
                     <code>
@@ -178,6 +181,7 @@ export function MarketplacePage() {
                       </dd>
                     </div>
                   </dl>
+                  <p className="task-card__deadline">Deadline - {formatUnixSeconds(bounty.deadline_unix)}</p>
                 </Link>
               </li>
             ))}

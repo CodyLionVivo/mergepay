@@ -3,6 +3,8 @@ import { AlertTriangle, CircleDashed, RotateCcw } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { ApiError, getBounty } from '../api/client'
 import { useAuth } from '../auth/authContext'
+import { BountyLifecycle } from '../components/BountyLifecycle'
+import { CopyButton } from '../components/CopyButton'
 import { BountyStatusBadge } from '../components/BountyStatusBadge'
 import { AssignmentPanel } from '../components/AssignmentPanel'
 import { FundingPanel } from '../components/FundingPanel'
@@ -246,164 +248,42 @@ export function BountyDetailPage() {
   }
 
   return (
-    <div className="shell">
-      <PageHeader
-        eyebrow={`Task #${bounty.id}`}
-        title={bounty.title}
-        actions={<BountyStatusBadge status={bounty.status} />}
-      />
-
-      {bounty.status === 'DRAFT' ? (
-        <FundingPanel bounty={bounty} onFunded={replaceBounty} />
-      ) : null}
-
-      {bounty.status === 'OPEN_FUNDED' ? (
-        <AssignmentPanel bounty={bounty} onAssigned={replaceBounty} />
-      ) : null}
-
-      {bounty.status === 'ASSIGNED' ? (
-        <SubmissionPanel bounty={bounty} onSubmitted={handleSubmitted} />
-      ) : null}
-
-      {SUBMITTED_STATUSES.has(bounty.status) ? (
-        <>
-          <SubmissionSummary
-            bounty={bounty}
-            submission={work.submission}
-            onRetry={work.reload}
-          />
-          <VerificationPanel
-            bounty={bounty}
-            latestVerification={work.verification}
-            onBountyUpdated={replaceBounty}
-            onVerificationUpdated={work.setVerification}
-            onSubmissionUpdated={work.setSubmission}
-            onReload={work.reload}
-          />
-        </>
-      ) : null}
-
-      {bounty.create_tx_hash !== null ? (
-        <OnChainEvidencePanel
-          bounty={bounty}
-          submission={
-            SUBMITTED_STATUSES.has(bounty.status) && work.submission.status === 'ready'
-              ? work.submission.value
-              : null
-          }
-          verification={work.verification}
-        />
-      ) : null}
-
-      <div className="detail-sections">
-        <section className="panel detail-section--wide">
-          <h2 className="panel__title">Overview</h2>
-          <p className="detail-body">{bounty.description}</p>
-        </section>
-
-        <section className="panel">
-          <h2 className="panel__title">Repository</h2>
-          <dl className="detail-list">
-            <div>
-              <dt>Repository</dt>
-              <dd>
-                <code>
-                  {bounty.repo_owner}/{bounty.repo_name}
-                </code>
-              </dd>
-            </div>
-            <div>
-              <dt>Base branch</dt>
-              <dd>
-                <code>{bounty.base_branch}</code>
-              </dd>
-            </div>
-            {bounty.base_sha ? (
-              <div>
-                <dt>Base commit</dt>
-                <dd>
-                  <code title={bounty.base_sha}>
-                    {abbreviateHash(bounty.base_sha)}
-                  </code>
-                </dd>
-              </div>
-            ) : null}
-          </dl>
-        </section>
-
-        <section className="panel">
-          <h2 className="panel__title">Reward</h2>
-          <p className="detail-amount">
-            {formatXlm(bounty.amount_stroops)} <span>XLM</span>
-          </p>
-          <dl className="detail-list">
-            <div>
-              <dt>Deadline</dt>
-              <dd>{formatUnixSeconds(bounty.deadline_unix)}</dd>
-            </div>
-          </dl>
-        </section>
-
-        <section className="panel detail-section--wide">
-          <h2 className="panel__title">Acceptance criteria</h2>
-          <p className="panel__hint">
-            Requirements agreed upfront. They are evaluated once a pull request
-            is submitted.
-          </p>
-          <ol className="criteria-list">
-            {orderedCriteria.map((criterion) => (
-              <li key={criterion.id}>
-                <CircleDashed size={16} aria-hidden="true" />
-                <span>{criterion.description}</span>
-              </li>
-            ))}
-          </ol>
-        </section>
-
-        <section className="panel">
-          <h2 className="panel__title">Criteria commitment</h2>
-          <p className="panel__hint">
-            The digest anchored on-chain so the terms cannot change later.
-          </p>
-          {bounty.criteria_hash ? (
-            <p className="detail-body">
-              <code title={bounty.criteria_hash}>
-                {abbreviateHash(bounty.criteria_hash)}
-              </code>
-            </p>
-          ) : (
-            <p className="detail-empty">Not committed yet</p>
-          )}
-        </section>
-
-        <section className="panel">
-          <h2 className="panel__title">GitHub verification</h2>
-          {bounty.pull_request_number === null ? (
-            <p className="detail-empty">Waiting for a pull request.</p>
-          ) : (
-            <p className="detail-body">
-              Pull request <code>#{bounty.pull_request_number}</code>
-            </p>
-          )}
-        </section>
-
-        <section className="panel">
-          <h2 className="panel__title">Settlement</h2>
-          {bounty.release_tx_hash === null ? (
-            <p className="detail-empty">No payout transaction yet.</p>
-          ) : (
-            <dl className="detail-list">
-              <div>
-                <dt>Payout transaction</dt>
-                <dd>
-                  <code title={bounty.release_tx_hash}>
-                    {abbreviateHash(bounty.release_tx_hash)}
-                  </code>
-                </dd>
-              </div>
+    <div className="shell bounty-detail">
+      <Link className="back-link" to="/">Back to bounties</Link>
+      <PageHeader eyebrow={`Bounty #${bounty.id}`} title={bounty.title} actions={<BountyStatusBadge status={bounty.status} />} />
+      <BountyLifecycle status={bounty.status} />
+      <div className="bounty-layout">
+        <aside className="bounty-sidebar" aria-label="Reward and next action">
+          <section className="reward-summary panel">
+            <p className="hero__eyebrow">Reward</p>
+            <p className="detail-amount">{formatXlm(bounty.amount_stroops)} <span>XLM units</span></p>
+            <p className="reward-summary__state">{bounty.status === 'PAID' ? 'Payment confirmed by MergePay' : bounty.status === 'ELIGIBLE' ? 'Verified - payment not confirmed' : bounty.status === 'DRAFT' ? 'Draft - funding required' : ['CANCELLED_REFUNDED', 'EXPIRED_REFUNDED'].includes(bounty.status) ? 'Reward returned' : 'Funding recorded - not paid'}</p>
+            <dl className="detail-list"><div><dt>Deadline</dt><dd>{formatUnixSeconds(bounty.deadline_unix)}</dd></div>
+              {bounty.developer_github ? <div><dt>Assigned developer</dt><dd>{bounty.developer_github}</dd></div> : null}
             </dl>
-          )}
-        </section>
+            <details className="reward-note"><summary>Testnet reward information</summary><p>Amounts use 7-decimal XLM display units. The API does not identify the configured escrow token. Confirm the deployment uses native XLM before funding.</p></details>
+          </section>
+          {bounty.status === 'DRAFT' ? <FundingPanel bounty={bounty} onFunded={replaceBounty} /> : null}
+          {bounty.status === 'OPEN_FUNDED' ? <AssignmentPanel bounty={bounty} onAssigned={replaceBounty} /> : null}
+          {bounty.status === 'ASSIGNED' ? <SubmissionPanel bounty={bounty} onSubmitted={handleSubmitted} /> : null}
+          {SUBMITTED_STATUSES.has(bounty.status) ? <a className="button button--secondary" href="#verification">View verification & payment</a> : null}
+        </aside>
+        <div className="bounty-content">
+          <section className="bounty-section"><h2>About this bounty</h2><p className="detail-body">{bounty.description}</p>
+            <dl className="repository-summary"><div><dt>Repository</dt><dd><code>{bounty.repo_owner}/{bounty.repo_name}</code></dd></div><div><dt>Base branch</dt><dd><code>{bounty.base_branch}</code></dd></div></dl>
+          </section>
+          <section className="bounty-section"><h2>Acceptance criteria</h2><p className="panel__hint">Agreed requirements, not individual pass results. Verification checks are shown separately below.</p>
+            <ol className="criteria-list">{orderedCriteria.map((criterion) => <li key={criterion.id}><CircleDashed size={16} aria-hidden="true" /><span>{criterion.description}{!criterion.required ? <small> - Optional</small> : null}</span></li>)}</ol>
+          </section>
+          {SUBMITTED_STATUSES.has(bounty.status) ? <>
+            <SubmissionSummary bounty={bounty} submission={work.submission} onRetry={work.reload} />
+            <div id="verification"><VerificationPanel bounty={bounty} latestVerification={work.verification} onBountyUpdated={replaceBounty} onVerificationUpdated={work.setVerification} onSubmissionUpdated={work.setSubmission} onReload={work.reload} /></div>
+          </> : <section className="bounty-section"><h2>Pull request & verification</h2><p className="detail-empty">{bounty.status === 'ASSIGNED' ? 'Submit your open pull request using the action panel. Then run verification to check its latest commit.' : 'After a developer accepts this bounty, their pull request and verification results appear here.'}</p></section>}
+          <details className="technical-disclosure"><summary>Technical details & on-chain evidence</summary>
+            <dl className="detail-list"><div><dt>Base commit</dt><dd>{bounty.base_sha ? <><code>{abbreviateHash(bounty.base_sha)}</code><CopyButton value={bounty.base_sha} label="base commit" /></> : 'Recorded when funding is confirmed'}</dd></div><div><dt>Criteria commitment</dt><dd>{bounty.criteria_hash ? <><code>{abbreviateHash(bounty.criteria_hash)}</code><CopyButton value={bounty.criteria_hash} label="criteria commitment" /></> : 'Not recorded'}</dd></div></dl>
+            {bounty.create_tx_hash !== null ? <OnChainEvidencePanel bounty={bounty} submission={SUBMITTED_STATUSES.has(bounty.status) && work.submission.status === 'ready' ? work.submission.value : null} verification={work.verification} /> : <p className="detail-empty">No funding transaction recorded yet.</p>}
+          </details>
+        </div>
       </div>
     </div>
   )

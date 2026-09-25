@@ -22,7 +22,7 @@ const STATUSES: Record<string, StatusStyle> = {
   SUBMITTED: { label: 'Submitted', tone: 'info' },
   VERIFYING: { label: 'Verifying', tone: 'warning' },
   NEEDS_CHANGES: { label: 'Needs changes', tone: 'danger' },
-  ELIGIBLE: { label: 'Eligible', tone: 'success' },
+  ELIGIBLE: { label: 'Eligible · unpaid', tone: 'warning' },
   PAID: { label: 'Paid', tone: 'success' },
   CANCELLED_REFUNDED: { label: 'Cancelled', tone: 'muted' },
   EXPIRED_REFUNDED: { label: 'Refunded', tone: 'muted' },
