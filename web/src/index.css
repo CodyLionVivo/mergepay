@@ -631,7 +631,6 @@ code {
 
 .field {
   display: flex;
-
   flex-direction: column;
 
   gap: 6px;
@@ -650,6 +649,10 @@ code {
 }
 
 
+/* =========================================================
+   INPUTS
+   ========================================================= */
+
 .field input,
 .field textarea,
 .field select {
@@ -658,7 +661,6 @@ code {
   padding: 10px 12px;
 
   border: 1px solid var(--border-strong);
-
   border-radius: var(--radius-sm);
 
   background-color: var(--surface-elevated);
@@ -670,6 +672,11 @@ code {
   font-size: 0.95rem;
 
   line-height: 1.5;
+
+  transition:
+    border-color 120ms ease,
+    background-color 120ms ease,
+    box-shadow 120ms ease;
 }
 
 
@@ -677,6 +684,10 @@ code {
   resize: vertical;
 }
 
+
+/* =========================================================
+   PLACEHOLDER
+   ========================================================= */
 
 .field input::placeholder,
 .field textarea::placeholder {
@@ -686,12 +697,20 @@ code {
 }
 
 
+/* =========================================================
+   HOVER
+   ========================================================= */
+
 .field input:hover,
 .field textarea:hover,
 .field select:hover {
   border-color: var(--text-secondary);
 }
 
+
+/* =========================================================
+   FOCUS
+   ========================================================= */
 
 .field input:focus,
 .field textarea:focus,
@@ -710,6 +729,10 @@ code {
 }
 
 
+/* =========================================================
+   FIELD HINT
+   ========================================================= */
+
 .field__hint {
   color: var(--text-secondary);
 
@@ -719,18 +742,80 @@ code {
 }
 
 
+/* =========================================================
+   FIELD ERROR
+   ========================================================= */
+
 .field__error {
+  display: flex;
+
+  width: fit-content;
+
+  align-items: center;
+
+  gap: 6px;
+
+  margin: 2px 0 0;
+
   color: var(--danger);
 
   font-size: 0.8125rem;
+  font-weight: 600;
+
+  line-height: 1.45;
 }
 
 
+/* =========================================================
+   INVALID INPUT
+   ========================================================= */
+
 .field input[aria-invalid='true'],
-.field textarea[aria-invalid='true'] {
+.field textarea[aria-invalid='true'],
+.field select[aria-invalid='true'] {
+  border-color: var(--danger);
+
+  box-shadow:
+    0 0 0 1px
+    color-mix(
+      in srgb,
+      var(--danger) 16%,
+      transparent
+    );
+}
+
+
+/* Hover del campo inválido */
+
+.field input[aria-invalid='true']:hover,
+.field textarea[aria-invalid='true']:hover,
+.field select[aria-invalid='true']:hover {
   border-color: var(--danger);
 }
 
+
+/* Focus del campo inválido */
+
+.field input[aria-invalid='true']:focus,
+.field textarea[aria-invalid='true']:focus,
+.field select[aria-invalid='true']:focus {
+  border-color: var(--danger);
+
+  outline: none;
+
+  box-shadow:
+    0 0 0 3px
+    color-mix(
+      in srgb,
+      var(--danger) 14%,
+      transparent
+    );
+}
+
+
+/* =========================================================
+   DISABLED
+   ========================================================= */
 
 .field input:disabled,
 .field textarea:disabled,
@@ -742,456 +827,121 @@ code {
 
 
 /* =========================================================
-   MARKETPLACE NETWORK
+   LIGHT MODE — FORM VALIDATION
    ========================================================= */
 
-.marketplace-network {
-  margin-bottom: 28px;
-
-  color: var(--text-secondary);
-
-  font-family: var(--font-mono);
-
-  font-size: 0.72rem;
-  font-weight: 500;
-
-  line-height: 1.5;
-
-  letter-spacing: 0.015em;
-}
-
-
-/* =========================================================
-   TASK HEADER
-   ========================================================= */
-
-.tasks__head {
-  display: flex;
-
-  flex-wrap: wrap;
-
-  align-items: center;
-  justify-content: space-between;
-
-  gap: 8px;
-
-  min-height: 48px;
-
-  padding-bottom: 14px;
-
-  border-bottom: 1px solid var(--border);
-}
-
-
-.tasks__title {
-  margin: 0;
-
-  color: var(--text-primary);
-
-  font-size: 1.25rem;
-  font-weight: 700;
-
-  line-height: 1.25;
-
-  letter-spacing: -0.025em;
-}
-
-
-.tasks__note {
-  margin: 0;
-
-  color: var(--text-secondary);
-
-  font-size: 0.8rem;
-}
-
-
-/* =========================================================
-   TASK GRID
-   ========================================================= */
-
-.tasks__grid {
-  display: grid;
-
-  gap: 16px;
-
-  margin-top: 20px;
-
-  padding: 0;
-
-  list-style: none;
-
-  grid-template-columns:
-    repeat(
-      auto-fill,
-      minmax(290px, 1fr)
-    );
-}
-
-
-/* =========================================================
-   TASK CARD
-   ========================================================= */
-
-.task-card {
-  display: flex;
-
-  height: 100%;
-
-  flex-direction: column;
-
-  align-items: flex-start;
-
-  gap: 12px;
-
-  padding: 20px;
-
-  color: var(--text-primary);
-
-  transition:
-    border-color 120ms ease,
-    background-color 120ms ease,
-    box-shadow 120ms ease;
-}
-
-
-.task-card:hover {
-  border-color: var(--border-strong);
-
-  background-color: var(--surface-elevated);
-
-  text-decoration: none;
-}
-
-
-.task-card__title {
-  margin: 0;
-
-  color: var(--text-primary);
-
-  font-size: 0.95rem;
-  font-weight: 700;
-}
-
-
-.task-card__repo {
-  color: var(--text-secondary);
-
-  font-size: 0.875rem;
-}
-
-
-.task-card__meta {
-  display: flex;
-
-  width: 100%;
-
-  gap: 28px;
-
-  margin: auto 0 0;
-
-  padding-top: 14px;
-
-  border-top: 1px solid var(--border);
-}
-
-
-.task-card__metric dt {
-  color: var(--text-secondary);
-
-  font-size: 0.7rem;
-
-  letter-spacing: 0.04em;
-
-  text-transform: uppercase;
-}
-
-
-.task-card__metric dd {
-  display: flex;
-
-  align-items: center;
-
-  gap: 6px;
-
-  margin: 4px 0 0;
-
-  color: var(--text-primary);
-
-  font-weight: 600;
-}
-
-
-.task-card__reward {
-  color: var(--success);
-}
-
-
-/* =========================================================
-   TASK STATE
-   ========================================================= */
-
-.tasks__state {
-  display: flex;
-
-  flex-direction: column;
-
-  align-items: center;
-  justify-content: center;
-
-  gap: 12px;
-
-  min-height: 220px;
-
-  margin-top: 20px;
-
-  padding: 44px 24px;
-
-  color: var(--text-primary);
-
-  text-align: center;
-}
-
-
-.tasks__state-icon {
-  color: var(--text-secondary);
-}
-
-
-.tasks__state-icon--error {
-  color: var(--primary);
-}
-
-
-.tasks__state-title {
-  margin: 0;
-
-  color: var(--text-primary);
-
-  font-size: 1rem;
-  font-weight: 700;
-
-  line-height: 1.35;
-}
-
-
-.tasks__state-text {
-  max-width: 44ch;
-
-  margin: 0;
-
-  color: var(--text-secondary);
-
-  font-size: 0.95rem;
-
-  line-height: 1.55;
-}
-
-
-.tasks__state .button {
+/*
+   En Light Mode el error necesita mayor contraste.
+   El campo se mantiene limpio, pero queda claramente marcado.
+*/
+
+html[data-theme='light'] .field__error {
   margin-top: 4px;
+
+  padding: 5px 8px;
+
+  border:
+    1px solid
+    rgb(217 77 99 / 16%);
+
+  border-radius: 6px;
+
+  background-color:
+    rgb(217 77 99 / 8%);
+
+  color: #b4233d;
+
+  font-weight: 650;
 }
 
 
-/* =========================================================
-   ERROR DETAILS
-   ========================================================= */
+html[data-theme='light']
+.field input[aria-invalid='true'],
+html[data-theme='light']
+.field textarea[aria-invalid='true'],
+html[data-theme='light']
+.field select[aria-invalid='true'] {
+  border-color: #d94d63;
 
-.error-details {
-  max-width: 520px;
-
-  color: var(--text-secondary);
-
-  font-size: 0.8rem;
-}
-
-
-.error-details summary {
-  cursor: pointer;
-
-  color: var(--text-secondary);
-
-  user-select: none;
-}
-
-
-.error-details summary:hover {
-  color: var(--text-primary);
-}
-
-
-.error-details p {
-  margin-top: 10px;
-
-  color: var(--text-secondary);
-
-  font-size: 0.8rem;
-
-  line-height: 1.5;
-
-  overflow-wrap: anywhere;
-}
-
-
-/* =========================================================
-   SKELETON
-   ========================================================= */
-
-.skeleton {
-  height: 10px;
-
-  border-radius: 999px;
-
-  background-color: var(--surface-elevated);
-}
-
-
-.skeleton--short {
-  width: 45%;
-}
-
-
-.skeleton--medium {
-  width: 70%;
-}
-
-
-.skeleton--long {
-  width: 92%;
-}
-
-
-.task-card--skeleton {
-  gap: 14px;
-
-  cursor: default;
-}
-
-
-.task-card--skeleton:hover {
-  border-color: var(--border);
-
-  background-color: var(--surface);
-}
-
-
-.task-card--skeleton .task-card__meta {
-  display: block;
-}
-
-
-/* =========================================================
-   ACCESSIBILITY
-   ========================================================= */
-
-.visually-hidden {
-  position: absolute;
-
-  width: 1px;
-  height: 1px;
-
-  margin: -1px;
-  padding: 0;
-
-  border: 0;
-
-  overflow: hidden;
-
-  clip-path: inset(50%);
-
-  white-space: nowrap;
-}
-
-
-/* =========================================================
-   LIGHT MODE — CONTRAST
-   ========================================================= */
-
-html[data-theme='light'],
-html[data-theme='light'] body,
-html[data-theme='light'] #root {
-  background-color: #f7f8fc;
+  background-color: #fffafb;
 
   color: #0b0d14;
+
+  box-shadow:
+    0 0 0 1px
+    rgb(217 77 99 / 10%);
 }
 
 
-html[data-theme='light'] h1,
-html[data-theme='light'] h2,
-html[data-theme='light'] h3,
-html[data-theme='light'] h4,
-html[data-theme='light'] h5,
-html[data-theme='light'] h6 {
-  color: #0b0d14;
+html[data-theme='light']
+.field input[aria-invalid='true']:hover,
+html[data-theme='light']
+.field textarea[aria-invalid='true']:hover,
+html[data-theme='light']
+.field select[aria-invalid='true']:hover {
+  border-color: #c93f57;
 }
 
 
-html[data-theme='light'] p {
-  color: #343a48;
-}
+html[data-theme='light']
+.field input[aria-invalid='true']:focus,
+html[data-theme='light']
+.field textarea[aria-invalid='true']:focus,
+html[data-theme='light']
+.field select[aria-invalid='true']:focus {
+  border-color: #c93f57;
 
-
-html[data-theme='light'] .hero__title,
-html[data-theme='light'] .tasks__title,
-html[data-theme='light'] .tasks__state-title,
-html[data-theme='light'] .task-card__title {
-  color: #0b0d14;
-}
-
-
-html[data-theme='light'] .hero__lede,
-html[data-theme='light'] .tasks__state-text,
-html[data-theme='light'] .task-card__repo,
-html[data-theme='light'] .panel__hint,
-html[data-theme='light'] .field__hint {
-  color: #343a48;
-}
-
-
-html[data-theme='light'] .marketplace-network {
-  color: #505867;
-}
-
-
-html[data-theme='light'] .field input,
-html[data-theme='light'] .field textarea,
-html[data-theme='light'] .field select {
   background-color: #ffffff;
 
-  color: #0b0d14;
-}
-
-
-html[data-theme='light'] .field input::placeholder,
-html[data-theme='light'] .field textarea::placeholder {
-  color: #596273;
+  box-shadow:
+    0 0 0 3px
+    rgb(217 77 99 / 14%);
 }
 
 
 /* =========================================================
-   DARK MODE
+   DARK MODE — FORM VALIDATION
    ========================================================= */
 
-html[data-theme='dark'],
-html[data-theme='dark'] body,
-html[data-theme='dark'] #root {
-  background-color: #070a12;
-
-  color: #f5f7fb;
+html[data-theme='dark'] .field__error {
+  color: #ff8b9a;
 }
 
 
-html[data-theme='dark'] p {
-  color: #c0c8d5;
+html[data-theme='dark']
+.field input[aria-invalid='true'],
+html[data-theme='dark']
+.field textarea[aria-invalid='true'],
+html[data-theme='dark']
+.field select[aria-invalid='true'] {
+  border-color: #f07182;
+
+  background-color:
+    color-mix(
+      in srgb,
+      var(--surface-elevated) 94%,
+      #f07182
+    );
+
+  color: var(--text-primary);
+
+  box-shadow:
+    0 0 0 1px
+    rgb(240 113 130 / 12%);
 }
 
 
-html[data-theme='dark'] .field input,
-html[data-theme='dark'] .field textarea,
-html[data-theme='dark'] .field select {
-  background-color: #111827;
+html[data-theme='dark']
+.field input[aria-invalid='true']:focus,
+html[data-theme='dark']
+.field textarea[aria-invalid='true']:focus,
+html[data-theme='dark']
+.field select[aria-invalid='true']:focus {
+  border-color: #ff8b9a;
 
-  color: #f5f7fb;
+  box-shadow:
+    0 0 0 3px
+    rgb(240 113 130 / 16%);
 }
 
 

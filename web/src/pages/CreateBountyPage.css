@@ -16,7 +16,6 @@
 .form-steps {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-
   gap: 6px;
 
   margin: 28px 0 24px;
@@ -36,6 +35,7 @@
 
 .form-steps button {
   display: flex;
+
   width: 100%;
   min-height: 46px;
 
@@ -91,14 +91,17 @@
 }
 
 
-/* Paso actual */
+/* =========================================================
+   STEPPER — CURRENT
+   ========================================================= */
 
 .form-steps li[aria-current='step'] button {
-  background: color-mix(
-    in srgb,
-    var(--primary) 12%,
-    var(--surface-elevated)
-  );
+  background:
+    color-mix(
+      in srgb,
+      var(--primary) 12%,
+      var(--surface-elevated)
+    );
 
   color: var(--text-primary);
 }
@@ -110,7 +113,9 @@
 }
 
 
-/* Pasos completados */
+/* =========================================================
+   STEPPER — COMPLETED
+   ========================================================= */
 
 .form-steps li.is-complete button {
   color: var(--text-primary);
@@ -344,12 +349,31 @@
 
 .task-form__criteria {
   border: 1px solid var(--border);
+
+  background: var(--surface-elevated);
 }
 
 .task-form__criteria legend {
   padding: 0 5px;
 
   color: var(--text-primary);
+}
+
+
+/*
+ * Cada criterio tiene su propio contenedor.
+ * IMPORTANTE:
+ * el fondo oscuro anterior se controla aquí para evitar
+ * que aparezca gris/negro cuando la aplicación está en Light.
+ */
+
+.task-form__criteria > .field {
+  padding: 14px;
+
+  border: 1px solid var(--border);
+  border-radius: 12px;
+
+  background: var(--surface);
 }
 
 .criterion-row {
@@ -417,11 +441,12 @@
 .icon-button:hover:not(:disabled) {
   border-color: var(--danger);
 
-  background: color-mix(
-    in srgb,
-    var(--danger) 7%,
-    var(--surface)
-  );
+  background:
+    color-mix(
+      in srgb,
+      var(--danger) 7%,
+      var(--surface)
+    );
 
   color: var(--danger);
 }
@@ -614,7 +639,8 @@
 
   padding: 12px 16px;
 
-  border: 1px solid
+  border:
+    1px solid
     color-mix(
       in srgb,
       var(--danger) 45%,
@@ -676,12 +702,12 @@
 
 
 /* =========================================================
-   BUTTONS - CREATE BOUNTY PAGE
+   BUTTONS — CREATE BOUNTY
    ========================================================= */
 
 /*
- * Evitamos que Continue / Create draft se vea como
- * un bloque morado en Light.
+ * Continue / Add criterion / Create draft permanecen claros
+ * en Light Mode.
  */
 
 html[data-theme='light']
@@ -719,11 +745,12 @@ html[data-theme='light']
    ========================================================= */
 
 html[data-theme='light'] .wizard-shell {
-  color: var(--text-primary);
+  color: #121522;
 }
 
 html[data-theme='light'] .form-steps {
   background: #ffffff;
+
   border-color: #dedfe6;
 }
 
@@ -738,6 +765,11 @@ html[data-theme='light'] .review-summary {
     0 8px 24px rgb(0 0 0 / 5%);
 }
 
+
+/* ---------------------------------------------------------
+   Light — fields
+   --------------------------------------------------------- */
+
 html[data-theme='light'] .field input,
 html[data-theme='light'] .field textarea,
 html[data-theme='light'] .field select {
@@ -748,16 +780,118 @@ html[data-theme='light'] .field select {
   border-color: #d8dae2;
 }
 
-html[data-theme='light']
-.field input::placeholder,
+html[data-theme='light'] .field input::placeholder,
+html[data-theme='light'] .field textarea::placeholder {
+  color: #858a98;
+
+  opacity: 1;
+}
+
+
+/* ---------------------------------------------------------
+   Light — Acceptance criteria
+   --------------------------------------------------------- */
+
+html[data-theme='light'] .task-form__criteria {
+  background: #ffffff;
+
+  border-color: #dedfe6;
+}
+
+
+/*
+ * ESTE ES EL FIX PRINCIPAL.
+ *
+ * Sobrescribe cualquier regla anterior como:
+ *
+ * .task-form__criteria > .field {
+ *   background: rgba(11, 17, 33, 0.5);
+ * }
+ */
 
 html[data-theme='light']
-.field textarea::placeholder {
-  color: #858a98;
+.task-form__criteria > .field {
+  background: #f7f8fb !important;
+
+  border-color: #e1e3e9;
+
+  color: #161821;
 }
+
+html[data-theme='light']
+.task-form__criteria > .field label {
+  color: #161821;
+}
+
+html[data-theme='light']
+.task-form__criteria .criterion-row {
+  background: transparent;
+}
+
+html[data-theme='light']
+.task-form__criteria .criterion-row input {
+  background: #ffffff;
+
+  border-color: #d8dae2;
+
+  color: #161821;
+}
+
+html[data-theme='light']
+.task-form__criteria .criterion-row input::placeholder {
+  color: #858a98;
+
+  opacity: 1;
+}
+
+html[data-theme='light']
+.task-form__criteria .criterion-number {
+  background: #ffffff;
+
+  border-color: #d8dae2;
+
+  color: #515765;
+}
+
+html[data-theme='light']
+.task-form__criteria .icon-button {
+  background: #ffffff;
+
+  border-color: #d8dae2;
+
+  color: #626876;
+}
+
+html[data-theme='light']
+.task-form__criteria .icon-button:hover:not(:disabled) {
+  border-color: var(--danger);
+
+  background:
+    color-mix(
+      in srgb,
+      var(--danger) 6%,
+      #ffffff
+    );
+
+  color: var(--danger);
+}
+
+
+/* ---------------------------------------------------------
+   Light — technical disclosure
+   --------------------------------------------------------- */
 
 html[data-theme='light'] .technical-disclosure {
   background: #ffffff;
+
+  border-color: #dedfe6;
+
+  color: #4f5563;
+}
+
+html[data-theme='light']
+.technical-disclosure summary {
+  color: #161821;
 }
 
 
@@ -779,16 +913,60 @@ html[data-theme='dark'] .field select {
 }
 
 
+/* ---------------------------------------------------------
+   Dark — Acceptance criteria
+   --------------------------------------------------------- */
+
+html[data-theme='dark'] .task-form__criteria {
+  background: var(--surface-elevated);
+
+  border-color: var(--border);
+}
+
+html[data-theme='dark']
+.task-form__criteria > .field {
+  background: rgba(11, 17, 33, 0.5);
+
+  border-color: var(--border);
+
+  color: var(--text-primary);
+}
+
+html[data-theme='dark']
+.task-form__criteria .criterion-row {
+  background: transparent;
+}
+
+html[data-theme='dark']
+.task-form__criteria .criterion-row input {
+  background: var(--surface);
+
+  color: var(--text-primary);
+}
+
+html[data-theme='dark']
+.task-form__criteria .criterion-number {
+  background: var(--surface);
+
+  color: var(--text-secondary);
+}
+
+html[data-theme='dark']
+.task-form__criteria .icon-button {
+  background: var(--surface);
+
+  color: var(--text-secondary);
+}
+
+
 /* =========================================================
    TABLET
    ========================================================= */
 
 @media (width <= 820px) {
-
   .reward-configuration {
     grid-template-columns: 1fr;
   }
-
 }
 
 
@@ -797,7 +975,6 @@ html[data-theme='dark'] .field select {
    ========================================================= */
 
 @media (width <= 640px) {
-
   .wizard-shell {
     width: 100%;
   }
@@ -842,6 +1019,10 @@ html[data-theme='dark'] .field select {
     margin-top: 8px;
   }
 
+  .task-form__criteria > .field {
+    padding: 12px;
+  }
+
   .task-form__footer {
     align-items: stretch;
 
@@ -855,5 +1036,4 @@ html[data-theme='dark'] .field select {
   .task-form__note {
     flex-basis: auto;
   }
-
 }

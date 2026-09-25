@@ -1,59 +1,200 @@
 /* =========================================================
    ESCROW CARD
-   La tarjeta siempre es oscura, incluso en Light Mode
+   Siempre oscura, incluso en Light Mode
    ========================================================= */
 
-.escrow-card {
-  color: #f7f7fb;
+.escrow {
+  color: #f7f8ff;
 }
 
-.escrow-card h1,
-.escrow-card h2,
-.escrow-card h3,
-.escrow-card strong,
-.escrow-card .brand__name {
-  color: #f7f7fb;
+
+/* =========================================================
+   CARAS DE LA TARJETA
+   ========================================================= */
+
+.escrow__face,
+.escrow__face--front,
+.escrow__face--back {
+  color: #f7f8ff;
 }
 
-/* Textos secundarios dentro de la tarjeta */
-.escrow-card p,
-.escrow-card span,
-.escrow-card small,
-.escrow-card dt {
-  color: #b9bfd0;
+
+/* =========================================================
+   BRAND / MERGEPAY
+   ========================================================= */
+
+.escrow__face .brand-lockup,
+.escrow__face .brand-lockup *,
+.escrow__face .brand__name {
+  color: #f7f8ff !important;
 }
 
-/* Valor principal: 250 */
-.escrow-card dd,
-.escrow-card__amount,
-.escrow-card__value {
+
+/* =========================================================
+   TEXTO SUPERIOR
+   Reward · XLM display units
+   ========================================================= */
+
+.escrow__eyebrow {
+  color: #c4cad8 !important;
+}
+
+
+/* =========================================================
+   MONTO PRINCIPAL
+   250
+   ========================================================= */
+
+.escrow__amount,
+.escrow__amount strong,
+.escrow__amount b {
+  color: #ffffff !important;
+}
+
+
+/* =========================================================
+   MONEDA
+   XLM
+   ========================================================= */
+
+.escrow__currency,
+.escrow__amount span {
+  color: #c9c5ff !important;
+}
+
+
+/* =========================================================
+   PARTE INFERIOR
+   Not funded / estado
+   ========================================================= */
+
+.escrow__bottom,
+.escrow__bottom p,
+.escrow__bottom span,
+.escrow__bottom small,
+.escrow__bottom strong {
+  color: #c4cad8 !important;
+}
+
+
+/* =========================================================
+   ICONOS
+   ========================================================= */
+
+.escrow__face svg,
+.escrow__bottom svg {
+  color: #c4cad8;
+
+  stroke: currentColor;
+}
+
+
+/* =========================================================
+   TEXTOS GENERALES DENTRO DE LA CARD
+   ========================================================= */
+
+.escrow__face p,
+.escrow__face small,
+.escrow__face dt {
+  color: #c4cad8;
+}
+
+.escrow__face h1,
+.escrow__face h2,
+.escrow__face h3,
+.escrow__face dd {
   color: #ffffff;
 }
 
-/* XLM */
-.escrow-card__currency {
+
+/* =========================================================
+   LIGHT MODE
+   La tarjeta NO adopta los colores negros del tema claro
+   ========================================================= */
+
+html[data-theme='light'] .escrow,
+html[data-theme='light'] .escrow__face {
+  color: #f7f8ff;
+}
+
+html[data-theme='light'] .escrow__face .brand-lockup,
+html[data-theme='light'] .escrow__face .brand-lockup *,
+html[data-theme='light'] .escrow__face .brand__name {
+  color: #f7f8ff !important;
+}
+
+html[data-theme='light'] .escrow__eyebrow {
+  color: #c4cad8 !important;
+}
+
+html[data-theme='light'] .escrow__amount,
+html[data-theme='light'] .escrow__amount strong,
+html[data-theme='light'] .escrow__amount b {
+  color: #ffffff !important;
+}
+
+html[data-theme='light'] .escrow__currency,
+html[data-theme='light'] .escrow__amount span {
+  color: #c9c5ff !important;
+}
+
+html[data-theme='light'] .escrow__bottom,
+html[data-theme='light'] .escrow__bottom p,
+html[data-theme='light'] .escrow__bottom span,
+html[data-theme='light'] .escrow__bottom small,
+html[data-theme='light'] .escrow__bottom strong {
+  color: #c4cad8 !important;
+}
+
+html[data-theme='light'] .escrow__face p,
+html[data-theme='light'] .escrow__face small,
+html[data-theme='light'] .escrow__face dt {
+  color: #c4cad8 !important;
+}
+
+html[data-theme='light'] .escrow__face h1,
+html[data-theme='light'] .escrow__face h2,
+html[data-theme='light'] .escrow__face h3,
+html[data-theme='light'] .escrow__face dd {
+  color: #ffffff !important;
+}
+
+
+/* =========================================================
+   DARK MODE
+   Mantiene exactamente la misma apariencia
+   ========================================================= */
+
+html[data-theme='dark'] .escrow,
+html[data-theme='dark'] .escrow__face {
+  color: #f7f8ff;
+}
+
+html[data-theme='dark'] .escrow__face .brand-lockup,
+html[data-theme='dark'] .escrow__face .brand-lockup *,
+html[data-theme='dark'] .escrow__face .brand__name {
+  color: #f7f8ff;
+}
+
+html[data-theme='dark'] .escrow__eyebrow {
+  color: #c4cad8;
+}
+
+html[data-theme='dark'] .escrow__amount,
+html[data-theme='dark'] .escrow__amount strong,
+html[data-theme='dark'] .escrow__amount b {
+  color: #ffffff;
+}
+
+html[data-theme='dark'] .escrow__currency,
+html[data-theme='dark'] .escrow__amount span {
   color: #c9c5ff;
 }
 
-/* Evita que Light Mode convierta el texto de la tarjeta a negro */
-html[data-theme='light'] .escrow-card,
-html[data-theme='light'] .escrow-card h1,
-html[data-theme='light'] .escrow-card h2,
-html[data-theme='light'] .escrow-card h3,
-html[data-theme='light'] .escrow-card strong,
-html[data-theme='light'] .escrow-card .brand__name {
-  color: #f7f7fb;
-}
-
-html[data-theme='light'] .escrow-card p,
-html[data-theme='light'] .escrow-card span,
-html[data-theme='light'] .escrow-card small,
-html[data-theme='light'] .escrow-card dt {
-  color: #b9bfd0;
-}
-
-html[data-theme='light'] .escrow-card dd,
-html[data-theme='light'] .escrow-card__amount,
-html[data-theme='light'] .escrow-card__value {
-  color: #ffffff;
+html[data-theme='dark'] .escrow__bottom,
+html[data-theme='dark'] .escrow__bottom p,
+html[data-theme='dark'] .escrow__bottom span,
+html[data-theme='dark'] .escrow__bottom small,
+html[data-theme='dark'] .escrow__bottom strong {
+  color: #c4cad8;
 }
