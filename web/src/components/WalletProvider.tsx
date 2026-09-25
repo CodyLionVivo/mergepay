@@ -82,6 +82,7 @@ async function connectWallet(): Promise<WalletSnapshot> {
 }
 
 export function WalletProvider({ children }: { children: ReactNode }) {
+  const [initializing, setInitializing] = useState(true)
   const [wallet, setWallet] = useState<WalletSnapshot>(() => snapshot('disconnected'))
 
   // Solo aplica la respuesta de la ultima operacion lanzada, para que una
@@ -94,6 +95,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
     if (request === latestRequest.current) {
       setWallet(next)
+      setInitializing(false)
     }
   }, [])
 
@@ -106,6 +108,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
     if (request === latestRequest.current) {
       setWallet(next)
+      setInitializing(false)
     }
   }, [])
 
@@ -116,13 +119,14 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     void readWalletSnapshot().then((next) => {
       if (request === latestRequest.current) {
         setWallet(next)
+        setInitializing(false)
       }
     })
   }, [])
 
   const value = useMemo<WalletContextValue>(
-    () => ({ ...wallet, connect, refresh }),
-    [wallet, connect, refresh],
+    () => ({ ...wallet, initializing, connect, refresh }),
+    [wallet, initializing, connect, refresh],
   )
 
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>

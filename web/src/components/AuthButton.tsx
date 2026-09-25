@@ -1,3 +1,4 @@
+import { t, useI18n } from '../i18n'
 import { AlertTriangle, Loader, Lock, LogOut, RotateCcw } from 'lucide-react'
 import { useAuth } from '../auth/authContext'
 import { abbreviateAddress, useWallet } from '../stellar/walletContext'
@@ -9,6 +10,7 @@ import './AuthButton.css'
  * Sin wallet conectada no se ofrece autenticacion: firmar necesita Freighter.
  */
 export function AuthButton() {
+  useI18n()
   const auth = useAuth()
   const wallet = useWallet()
 
@@ -16,16 +18,14 @@ export function AuthButton() {
     return (
       <span className="auth-chip" title={auth.wallet}>
         <Lock size={13} aria-hidden="true" />
-        <span className="auth-chip__label">Authenticated</span>
+        <span className="auth-chip__label">{t("Authenticated")}</span>
         <span className="auth-chip__address">{abbreviateAddress(auth.wallet)}</span>
         <button
           type="button"
           className="auth-chip__action"
           onClick={() => void auth.signOut()}
         >
-          <LogOut size={13} aria-hidden="true" />
-          Sign out
-        </button>
+          <LogOut size={13} aria-hidden="true" />{t("Sign out")}</button>
       </span>
     )
   }
@@ -33,18 +33,14 @@ export function AuthButton() {
   if (auth.status === 'checking') {
     return (
       <button type="button" className="auth-button" disabled>
-        <Loader size={14} aria-hidden="true" />
-        Checking session...
-      </button>
+        <Loader size={14} aria-hidden="true" />{t("Checking session...")}</button>
     )
   }
 
   if (auth.status === 'signing') {
     return (
       <button type="button" className="auth-button" disabled>
-        <Loader size={14} aria-hidden="true" />
-        Signing in...
-      </button>
+        <Loader size={14} aria-hidden="true" />{t("Signing in...")}</button>
     )
   }
 
@@ -55,11 +51,9 @@ export function AuthButton() {
         type="button"
         className="auth-button auth-button--warning"
         onClick={() => void auth.refresh()}
-        title={auth.error ?? undefined}
+        title={auth.error ? t(auth.error) : undefined}
       >
-        <RotateCcw size={14} aria-hidden="true" />
-        Retry session
-      </button>
+        <RotateCcw size={14} aria-hidden="true" />{t("Retry session")}</button>
     )
   }
 
@@ -72,14 +66,12 @@ export function AuthButton() {
       type="button"
       className={`auth-button${auth.status === 'error' ? ' auth-button--warning' : ''}`}
       onClick={() => void auth.signIn()}
-      title={auth.error ?? 'Sign a message to prove you control this wallet.'}
+      title={t(auth.error ?? 'Sign a message to prove you control this wallet.')}
     >
       {auth.status === 'error' ? (
         <AlertTriangle size={14} aria-hidden="true" />
       ) : (
         <Lock size={14} aria-hidden="true" />
-      )}
-      Sign in
-    </button>
+      )}{t("Sign in")}</button>
   )
 }

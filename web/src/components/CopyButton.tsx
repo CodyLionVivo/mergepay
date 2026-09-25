@@ -1,3 +1,4 @@
+import { t, useI18n } from '../i18n'
 import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, Check, Copy } from 'lucide-react'
 import './CopyButton.css'
@@ -23,6 +24,7 @@ interface CopyButtonProps {
 
 /** Copia solo al pulsar. Si la Clipboard API falla, lo dice y no rompe nada. */
 export function CopyButton({ value, label }: CopyButtonProps) {
+  useI18n()
   const [state, setState] = useState<CopyState>('idle')
   const resetTimer = useRef<number | undefined>(undefined)
 
@@ -47,9 +49,9 @@ export function CopyButton({ value, label }: CopyButtonProps) {
 
   const announcement =
     state === 'copied'
-      ? `Copied the ${label}.`
+      ? t('Copied {label}.', { label: t(label) })
       : state === 'failed'
-        ? `Could not copy the ${label}. Select and copy it manually.`
+        ? t('Could not copy {label}. Select and copy it manually.', { label: t(label) })
         : ''
 
   return (
@@ -58,11 +60,11 @@ export function CopyButton({ value, label }: CopyButtonProps) {
         type="button"
         className={`copy-button copy-button--${state}`}
         onClick={() => void copy()}
-        title={`Copy the full ${label}`}
+        title={t("Copy {label}", { label: t(label) })}
       >
         <Icon size={13} aria-hidden="true" />
-        {TEXT[state]}
-        <span className="visually-hidden"> {label}</span>
+        {t(TEXT[state])}
+        <span className="visually-hidden"> {t(label)}</span>
       </button>
       <span className="visually-hidden" aria-live="polite">
         {announcement}

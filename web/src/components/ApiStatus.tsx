@@ -1,3 +1,4 @@
+import { t, useI18n } from '../i18n'
 import { useEffect, useState } from 'react'
 import { AlertTriangle, CircleDashed, ShieldCheck } from 'lucide-react'
 import { getHealth } from '../api/client'
@@ -22,6 +23,7 @@ const ICONS = {
  * nunca tumba la aplicacion: solo cambia esta etiqueta.
  */
 export function ApiStatus() {
+  useI18n()
   const [status, setStatus] = useState<Status>('checking')
 
   useEffect(() => {
@@ -46,7 +48,7 @@ export function ApiStatus() {
   return (
     <p className={`api-status api-status--${status}`} role="status">
       <Icon className="api-status__icon" size={14} aria-hidden="true" />
-      {LABELS[status]}
+      {t(LABELS[status])}
     </p>
   )
 }

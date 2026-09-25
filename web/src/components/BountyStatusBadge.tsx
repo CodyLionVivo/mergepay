@@ -1,3 +1,4 @@
+import { t, useI18n } from '../i18n'
 import {
   AlertCircle,
   CheckCircle2,
@@ -46,13 +47,14 @@ interface BountyStatusBadgeProps {
  * backend puede añadir estados antes que el frontend.
  */
 export function BountyStatusBadge({ status }: BountyStatusBadgeProps) {
+  useI18n()
   const style = STATUSES[status] ?? { label: status, tone: 'neutral' as const }
   const Icon = TONE_ICONS[style.tone]
 
   return (
     <span className={`status-badge status-badge--${style.tone}`}>
       <Icon size={12} aria-hidden="true" />
-      {style.label}
+      {t(style.label)}
     </span>
   )
 }

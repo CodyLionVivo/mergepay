@@ -1,0 +1,4 @@
+@media (prefers-reduced-motion: reduce) {
+  .app-loader .pyramid { transform: none; }
+  .app-loader .pyramid__spin { animation: none; }
+}

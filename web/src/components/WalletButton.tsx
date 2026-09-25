@@ -1,3 +1,4 @@
+import { t, useI18n } from '../i18n'
 import { AlertTriangle, Loader, Wallet } from 'lucide-react'
 import { abbreviateAddress, useWallet } from '../stellar/walletContext'
 import './WalletButton.css'
@@ -7,6 +8,7 @@ import './WalletButton.css'
  * reintentar o, ya conectado, mostrar la address y la red.
  */
 export function WalletButton() {
+  useI18n()
   const { status, address, error, connect, refresh } = useWallet()
 
   if (status === 'connected' && address !== null) {
@@ -25,20 +27,16 @@ export function WalletButton() {
         type="button"
         className="wallet-button wallet-button--warning"
         onClick={() => void refresh()}
-        title="Switch Freighter to Testnet, then click to check again."
+        title={t("Switch Freighter to Testnet, then click to check again.")}
       >
-        <AlertTriangle size={14} aria-hidden="true" />
-        Wrong network
-      </button>
+        <AlertTriangle size={14} aria-hidden="true" />{t("Wrong network")}</button>
     )
   }
 
   if (status === 'connecting') {
     return (
       <button type="button" className="wallet-button" disabled>
-        <Loader size={14} aria-hidden="true" />
-        Connecting...
-      </button>
+        <Loader size={14} aria-hidden="true" />{t("Connecting...")}</button>
     )
   }
 
@@ -48,11 +46,9 @@ export function WalletButton() {
         type="button"
         className="wallet-button"
         onClick={() => void refresh()}
-        title="Install the Freighter extension, then click to check again."
+        title={t("Install the Freighter extension, then click to check again.")}
       >
-        <Wallet size={14} aria-hidden="true" />
-        Freighter not found
-      </button>
+        <Wallet size={14} aria-hidden="true" />{t("Freighter not found")}</button>
     )
   }
 
@@ -61,10 +57,8 @@ export function WalletButton() {
       type="button"
       className={status === 'error' ? 'wallet-button wallet-button--danger' : 'wallet-button'}
       onClick={() => void connect()}
-      title={error ?? undefined}
+      title={error ? t(error) : undefined}
     >
-      <Wallet size={14} aria-hidden="true" />
-      Connect wallet
-    </button>
+      <Wallet size={14} aria-hidden="true" />{t("Connect wallet")}</button>
   )
 }

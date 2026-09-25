@@ -9,6 +9,8 @@ export type WalletStatus =
   | 'error'
 
 export interface WalletContextValue {
+  /** Initial passive extension inspection; never prompts for a signature. */
+  initializing: boolean
   status: WalletStatus
   /** Address publica G.... Es el unico dato de la wallet que se guarda. */
   address: string | null

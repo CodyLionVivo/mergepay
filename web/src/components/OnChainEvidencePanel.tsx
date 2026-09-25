@@ -1,3 +1,4 @@
+import { t, useI18n } from '../i18n'
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
@@ -61,6 +62,7 @@ export function OnChainEvidencePanel({
   submission,
   verification,
 }: OnChainEvidencePanelProps) {
+  useI18n()
   const [loaded, setLoaded] = useState<Loaded | null>(null)
   const [token, setToken] = useState(0)
 
@@ -99,33 +101,23 @@ export function OnChainEvidencePanel({
       <div className="evidence-panel__head">
         <Blocks size={20} aria-hidden="true" />
         <div>
-          <h2 className="evidence-panel__title" id="onchain-title">
-            On-chain proof
-          </h2>
-          <p className="evidence-panel__subtitle">
-            Independent evidence recorded on Stellar Testnet.
-          </p>
+          <h2 className="evidence-panel__title" id="onchain-title">{t("On-chain proof")}</h2>
+          <p className="evidence-panel__subtitle">{t("Independent evidence recorded on Stellar Testnet.")}</p>
         </div>
       </div>
 
       <div className="evidence-panel__badges">
         {onChain.status === 'ready' ? (
           <span className="evidence-badge evidence-badge--live">
-            <Radio size={13} aria-hidden="true" />
-            Live from Stellar Testnet
-          </span>
+            <Radio size={13} aria-hidden="true" />{t("Live from Stellar Testnet")}</span>
         ) : null}
         <span className="evidence-badge evidence-badge--testnet">
-          <AlertTriangle size={13} aria-hidden="true" />
-          Testnet — no real funds
-        </span>
+          <AlertTriangle size={13} aria-hidden="true" />{t("Testnet — no real funds")}</span>
       </div>
 
       {onChain.status === 'loading' ? (
         <div className="evidence-panel__loading">
-          <p className="evidence-muted" role="status">
-            Reading the contract on Stellar Testnet...
-          </p>
+          <p className="evidence-muted" role="status">{t("Reading the contract on Stellar Testnet...")}</p>
           <div className="evidence-skeleton" aria-hidden="true">
             <div className="skeleton skeleton--long" />
             <div className="skeleton skeleton--medium" />
@@ -139,8 +131,8 @@ export function OnChainEvidencePanel({
           <div className="evidence-error" role="alert">
             <AlertTriangle size={16} aria-hidden="true" />
             <div className="evidence-error__body">
-              <p className="evidence-error__title">Live contract state unavailable</p>
-              <p>MergePay could not read the contract from Stellar Testnet right now.</p>
+              <p className="evidence-error__title">{t("Live contract state unavailable")}</p>
+              <p>{t("MergePay could not read the contract from Stellar Testnet right now.")}</p>
               <p className="evidence-muted">{onChain.message}</p>
               <div>
                 <button
@@ -148,9 +140,7 @@ export function OnChainEvidencePanel({
                   className="button button--secondary"
                   onClick={() => setToken((current) => current + 1)}
                 >
-                  <RotateCcw size={16} aria-hidden="true" />
-                  Try again
-                </button>
+                  <RotateCcw size={16} aria-hidden="true" />{t("Try again")}</button>
               </div>
             </div>
           </div>
@@ -158,11 +148,8 @@ export function OnChainEvidencePanel({
           {/* Sin lectura live no se afirma nada del contrato: solo las
               referencias que MergePay ya tiene guardadas. */}
           <div className="evidence-block">
-            <h3 className="evidence-block__title">Recorded transaction references</h3>
-            <p className="evidence-muted">
-              These transaction IDs are stored by MergePay. Live contract state could not
-              be independently refreshed.
-            </p>
+            <h3 className="evidence-block__title">{t("Recorded transaction references")}</h3>
+            <p className="evidence-muted">{t("These transaction IDs are stored by MergePay. Live contract state could not be independently refreshed.")}</p>
             <TransactionFacts bounty={bounty} />
           </div>
         </>
@@ -190,6 +177,7 @@ function ExternalAction({ href, context, children }: {
   context?: string
   children: ReactNode
 }) {
+  useI18n()
   return (
     <a className="evidence-link" href={href} target="_blank" rel="noreferrer">
       {children}
@@ -214,20 +202,20 @@ function Value({
   /** Enlace a StellarExpert, cuando aplica. */
   href?: string
 }) {
+  useI18n()
   return (
     <span className="evidence-value">
       <code title={value}>{display}</code>
       <CopyButton value={value} label={label} />
       {href !== undefined ? (
-        <ExternalAction href={href} context={label}>
-          View on StellarExpert
-        </ExternalAction>
+        <ExternalAction href={href} context={t(label)}>{t("View on StellarExpert")}</ExternalAction>
       ) : null}
     </span>
   )
 }
 
 function Fact({ term, children }: { term: string; children: ReactNode }) {
+  useI18n()
   return (
     <div>
       <dt>{term}</dt>
@@ -242,6 +230,7 @@ function MatchTag({ matches, matchText, mismatchText }: {
   matchText: string
   mismatchText: string
 }) {
+  useI18n()
   const Icon = matches ? CheckCircle2 : XCircle
 
   return (
@@ -260,28 +249,29 @@ const hasText = (value: string | null): value is string =>
  * live del contrato, asi que siguen visibles aunque el RPC falle.
  */
 function TransactionFacts({ bounty }: { bounty: Bounty }) {
+  useI18n()
   return (
     <dl className="evidence-facts">
       {hasText(bounty.create_tx_hash) ? (
-        <Fact term="Funding transaction">
+        <Fact term={t("Funding transaction")}>
           <Value
             value={bounty.create_tx_hash}
             display={abbreviateHash(bounty.create_tx_hash)}
-            label="funding transaction"
+            label={t("funding transaction")}
             href={stellarExpertSearchUrl(bounty.create_tx_hash)}
           />
         </Fact>
       ) : null}
-      <Fact term="Payout transaction">
+      <Fact term={t("Payout transaction")}>
         {hasText(bounty.release_tx_hash) ? (
           <Value
             value={bounty.release_tx_hash}
             display={abbreviateHash(bounty.release_tx_hash)}
-            label="payout transaction"
+            label={t("payout transaction")}
             href={stellarExpertSearchUrl(bounty.release_tx_hash)}
           />
         ) : (
-          <span className="evidence-muted">No payout transaction yet.</span>
+          <span className="evidence-muted">{t("No payout transaction yet.")}</span>
         )}
       </Fact>
     </dl>
@@ -311,6 +301,7 @@ function Evidence({
   submission: Submission | null
   verification: Loadable<VerificationRecord | null>
 }) {
+  useI18n()
   const contractId = onChain.contract_id
   const released = onChain.contract_status === 'Paid' && bounty.release_tx_hash !== null
 
@@ -334,22 +325,22 @@ function Evidence({
       ) : null}
 
       <div className="evidence-block evidence-block--wide">
-        <h3 className="evidence-block__title">Proof flow</h3>
+        <h3 className="evidence-block__title">{t("Proof flow")}</h3>
         <ol className="proof-flow">
           {steps.map((step, index) => {
             const Icon = step.done ? CheckCircle2 : CircleDashed
 
             return (
               <li
-                key={step.label}
+                key={t(step.label)}
                 className={`proof-step proof-step--${step.done ? 'done' : 'pending'}`}
               >
                 {index > 0 ? (
                   <ChevronRight className="proof-step__arrow" size={14} aria-hidden="true" />
                 ) : null}
                 <Icon size={16} aria-hidden="true" />
-                <span className="proof-step__label">{step.label}</span>
-                <span className="proof-step__state">{step.done ? 'Confirmed' : 'Not yet'}</span>
+                <span className="proof-step__label">{t(step.label)}</span>
+                <span className="proof-step__state">{step.done ? t("Confirmed") : t("Not yet")}</span>
               </li>
             )
           })}
@@ -357,21 +348,21 @@ function Evidence({
       </div>
 
       <div className="evidence-block">
-        <h3 className="evidence-block__title">Contract state</h3>
+        <h3 className="evidence-block__title">{t("Contract state")}</h3>
         <dl className="evidence-facts">
-          <Fact term="Contract">
+          <Fact term={t("Contract")}>
             {hasText(contractId) ? (
               <Value
                 value={contractId}
                 display={abbreviateAddress(contractId)}
-                label="contract ID"
+                label={t("contract ID")}
                 href={stellarExpertContractUrl(contractId)}
               />
             ) : (
-              'Unknown'
+              t("Unknown")
             )}
           </Fact>
-          <Fact term="Contract state">
+          <Fact term={t("Contract state")}>
             <span
               className={`contract-status contract-status--${
                 CONTRACT_STATUS_TONES[onChain.contract_status] ?? 'info'
@@ -380,77 +371,71 @@ function Evidence({
               {onChain.contract_status}
             </span>
           </Fact>
-          <Fact term="Escrow amount">{formatXlm(onChain.amount_stroops)} XLM</Fact>
-          <Fact term="Deadline">{formatUnixSeconds(onChain.deadline_unix)}</Fact>
-          <Fact term="Client">
+          <Fact term={t("Escrow amount")}>{formatXlm(onChain.amount_stroops)} XLM</Fact>
+          <Fact term={t("Deadline")}>{formatUnixSeconds(onChain.deadline_unix)}</Fact>
+          <Fact term={t("Client")}>
             <Value
               value={onChain.client_wallet}
               display={abbreviateAddress(onChain.client_wallet)}
-              label="client wallet"
+              label={t("client wallet")}
               href={stellarExpertSearchUrl(onChain.client_wallet)}
             />
           </Fact>
-          <Fact term="Developer">
+          <Fact term={t("Developer")}>
             {hasText(onChain.developer_wallet) ? (
               <Value
                 value={onChain.developer_wallet}
                 display={abbreviateAddress(onChain.developer_wallet)}
-                label="developer wallet"
+                label={t("developer wallet")}
                 href={stellarExpertSearchUrl(onChain.developer_wallet)}
               />
             ) : (
-              <span className="evidence-muted">Not assigned</span>
+              <span className="evidence-muted">{t("Not assigned")}</span>
             )}
           </Fact>
         </dl>
 
         {hasText(contractId) ? (
           <div className="evidence-actions">
-            <ExternalAction href={stellarExpertContractUrl(contractId)}>
-              View contract on StellarExpert
-            </ExternalAction>
-            <ExternalAction href={stellarLabContractUrl(contractId)}>
-              Inspect contract in Stellar Lab
-            </ExternalAction>
+            <ExternalAction href={stellarExpertContractUrl(contractId)}>{t("View contract on StellarExpert")}</ExternalAction>
+            <ExternalAction href={stellarLabContractUrl(contractId)}>{t("Inspect contract in Stellar Lab")}</ExternalAction>
           </div>
         ) : null}
       </div>
 
       <div className="evidence-block">
-        <h3 className="evidence-block__title">Cryptographic commitments</h3>
+        <h3 className="evidence-block__title">{t("Cryptographic commitments")}</h3>
 
         <div className="commitment">
           <div className="commitment__head">
-            <span className="commitment__title">Criteria commitment</span>
+            <span className="commitment__title">{t("Criteria commitment")}</span>
             <MatchTag
               matches={criteriaMatches}
-              matchText="Matches MergePay task"
-              mismatchText="MISMATCH"
+              matchText={t("Matches MergePay task")}
+              mismatchText={t("MISMATCH")}
             />
           </div>
           <Value
             value={onChain.criteria_hash}
             display={abbreviateHash(onChain.criteria_hash)}
-            label="criteria commitment"
+            label={t("criteria commitment")}
           />
-          <p className="evidence-muted">
-            Commits to the acceptance criteria agreed before the task was funded.
-          </p>
+          <p className="evidence-muted">{t("Commits to the acceptance criteria agreed before the task was funded.")}</p>
           {!criteriaMatches ? (
             // Con mismatch se ensenan los dos valores, no solo el del contrato.
             <dl className="evidence-compare">
-              <Fact term="On Stellar">
+              <Fact term={t("On Stellar")}>
                 <code title={onChain.criteria_hash}>{abbreviateHash(onChain.criteria_hash)}</code>
               </Fact>
-              <Fact term="MergePay task">
+              <Fact term={t("MergePay task")}>
                 {bounty.criteria_hash !== null ? (
                   <Value
                     value={bounty.criteria_hash}
                     display={abbreviateHash(bounty.criteria_hash)}
-                    label="task criteria hash"
+                    label={t("task criteria hash")}
                   />
                 ) : (
-                  <span className="evidence-muted">Not recorded</span>
+                  <span className="evidence-muted">{t("Not recorded")}</span>
                 )}
               </Fact>
             </dl>
@@ -459,12 +444,10 @@ function Evidence({
 
         <div className="commitment">
           <div className="commitment__head">
-            <span className="commitment__title">Evidence commitment</span>
+            <span className="commitment__title">{t("Evidence commitment")}</span>
             {onChain.evidence_hash !== null ? (
               <span className="evidence-tag evidence-tag--match">
-                <CheckCircle2 size={13} aria-hidden="true" />
-                Anchored on Stellar
-              </span>
+                <CheckCircle2 size={13} aria-hidden="true" />{t("Anchored on Stellar")}</span>
             ) : null}
           </div>
           {onChain.evidence_hash !== null ? (
@@ -472,17 +455,13 @@ function Evidence({
               <Value
                 value={onChain.evidence_hash}
                 display={abbreviateHash(onChain.evidence_hash)}
-                label="evidence commitment"
+                label={t("evidence commitment")}
               />
-              <p className="evidence-muted">
-                Commits to the verified pull request evidence used to release the reward.
-              </p>
+              <p className="evidence-muted">{t("Commits to the verified pull request evidence used to release the reward.")}</p>
             </>
           ) : (
             <p className="evidence-muted evidence-pending">
-              <CircleDashed size={14} aria-hidden="true" />
-              Verification evidence has not been anchored yet.
-            </p>
+              <CircleDashed size={14} aria-hidden="true" />{t("Verification evidence has not been anchored yet.")}</p>
           )}
         </div>
       </div>
@@ -490,29 +469,29 @@ function Evidence({
       <ConsistencyChecks bounty={bounty} onChain={onChain} criteriaMatches={criteriaMatches} />
 
       <div className="evidence-block">
-        <h3 className="evidence-block__title">Transactions</h3>
+        <h3 className="evidence-block__title">{t("Transactions")}</h3>
         <TransactionFacts bounty={bounty} />
       </div>
 
       {submission !== null ? (
         <div className="evidence-block evidence-block--wide">
-          <h3 className="evidence-block__title">Off-chain verification source</h3>
+          <h3 className="evidence-block__title">{t("Off-chain verification source")}</h3>
           <dl className="evidence-facts evidence-facts--row">
-            <Fact term="Pull request">
-              <code>PR #{submission.pull_request_number}</code>
+            <Fact term={t("Pull request")}>
+              <code>{t("PR #")}{submission.pull_request_number}</code>
             </Fact>
             {submission.author !== null ? (
-              <Fact term="GitHub author">
+              <Fact term={t("GitHub author")}>
                 <code>{submission.author}</code>
               </Fact>
             ) : null}
-            <Fact term="Head SHA">
+            <Fact term={t("Head SHA")}>
               <code title={submission.head_sha}>{abbreviateHash(submission.head_sha)}</code>
             </Fact>
           </dl>
           {isCanonicalPullRequestUrl(submission.pull_request_url) ? (
             <div className="evidence-actions">
-              <ExternalAction href={submission.pull_request_url}>Open pull request</ExternalAction>
+              <ExternalAction href={submission.pull_request_url}>{t("Open pull request")}</ExternalAction>
             </div>
           ) : null}
         </div>
@@ -530,6 +509,7 @@ function SettlementHero({
   onChain: OnChainBounty
   verification: Loadable<VerificationRecord | null>
 }) {
+  useI18n()
   const githubResult =
     verification.status === 'loading'
       ? 'Loading...'
@@ -540,38 +520,36 @@ function SettlementHero({
   return (
     <div className="evidence-hero evidence-block--wide">
       <h3 className="evidence-hero__title">
-        <BadgeCheck size={20} aria-hidden="true" />
-        Settlement independently verifiable
-      </h3>
+        <BadgeCheck size={20} aria-hidden="true" />{t("Settlement independently verifiable")}</h3>
 
       <dl className="evidence-facts evidence-facts--row">
-        <Fact term="GitHub">{githubResult}</Fact>
-        <Fact term="Stellar contract">{onChain.contract_status}</Fact>
-        <Fact term="Reward">{formatXlm(onChain.amount_stroops)} XLM</Fact>
+        <Fact term={t("GitHub")}>{t(githubResult)}</Fact>
+        <Fact term={t("Stellar contract")}>{onChain.contract_status}</Fact>
+        <Fact term={t("Reward")}>{formatXlm(onChain.amount_stroops)} XLM</Fact>
         {hasText(onChain.developer_wallet) ? (
-          <Fact term="Developer">
+          <Fact term={t("Developer")}>
             <Value
               value={onChain.developer_wallet}
               display={abbreviateAddress(onChain.developer_wallet)}
-              label="developer wallet"
+              label={t("developer wallet")}
             />
           </Fact>
         ) : null}
         {onChain.evidence_hash !== null ? (
-          <Fact term="Evidence commitment">
+          <Fact term={t("Evidence commitment")}>
             <Value
               value={onChain.evidence_hash}
               display={abbreviateHash(onChain.evidence_hash)}
-              label="evidence commitment"
+              label={t("evidence commitment")}
             />
           </Fact>
         ) : null}
         {hasText(bounty.release_tx_hash) ? (
-          <Fact term="Payout transaction">
+          <Fact term={t("Payout transaction")}>
             <Value
               value={bounty.release_tx_hash}
               display={abbreviateHash(bounty.release_tx_hash)}
-              label="payout transaction"
+              label={t("payout transaction")}
             />
           </Fact>
         ) : null}
@@ -579,14 +557,10 @@ function SettlementHero({
 
       <div className="evidence-actions">
         {hasText(bounty.release_tx_hash) ? (
-          <ExternalAction href={stellarExpertSearchUrl(bounty.release_tx_hash)}>
-            View payout on StellarExpert
-          </ExternalAction>
+          <ExternalAction href={stellarExpertSearchUrl(bounty.release_tx_hash)}>{t("View payout on StellarExpert")}</ExternalAction>
         ) : null}
         {hasText(onChain.contract_id) ? (
-          <ExternalAction href={stellarExpertContractUrl(onChain.contract_id)}>
-            View contract on StellarExpert
-          </ExternalAction>
+          <ExternalAction href={stellarExpertContractUrl(onChain.contract_id)}>{t("View contract on StellarExpert")}</ExternalAction>
         ) : null}
       </div>
     </div>
@@ -613,6 +587,7 @@ function ConsistencyChecks({
   onChain: OnChainBounty
   criteriaMatches: boolean
 }) {
+  useI18n()
   const address = (value: string | null) =>
     value === null ? 'Not recorded' : abbreviateAddress(value)
 
@@ -657,10 +632,8 @@ function ConsistencyChecks({
 
   return (
     <div className="evidence-block">
-      <h3 className="evidence-block__title">Task ↔ contract</h3>
-      <p className="evidence-muted">
-        Field-by-field comparison between this MergePay task and the contract.
-      </p>
+      <h3 className="evidence-block__title">{t("Task ↔ contract")}</h3>
+      <p className="evidence-muted">{t("Field-by-field comparison between this MergePay task and the contract.")}</p>
       <ul className="consistency-list">
         {rows.map((row) => (
           <ConsistencyRow key={row.label} row={row} />
@@ -671,20 +644,20 @@ function ConsistencyChecks({
 }
 
 function ConsistencyRow({ row }: { row: Consistency }) {
+  useI18n()
   const Icon: LucideIcon = row.matches ? CheckCircle2 : XCircle
 
   return (
     <li className={`consistency-row consistency-row--${row.matches ? 'match' : 'mismatch'}`}>
       <Icon size={15} aria-hidden="true" />
       <div className="consistency-row__body">
-        <span>{row.label}</span>
+        <span>{t(row.label)}</span>
         {!row.matches ? (
-          <span className="consistency-row__detail">
-            Task {row.task} · Contract {row.contract}
+          <span className="consistency-row__detail">{t("Task")} {t(row.task)} {t("· Contract")} {t(row.contract)}
           </span>
         ) : null}
       </div>
-      <span className="consistency-row__state">{row.matches ? 'Matches' : 'Mismatch'}</span>
+      <span className="consistency-row__state">{row.matches ? t("Matches") : t("Mismatch")}</span>
     </li>
   )
 }

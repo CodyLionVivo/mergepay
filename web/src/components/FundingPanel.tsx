@@ -1,5 +1,7 @@
+import { t, useI18n } from '../i18n'
+import { RewardIndicator } from './RewardIndicator'
 import { useState } from 'react'
-import { AlertTriangle, Info, Loader, RotateCcw, ShieldCheck, Wallet } from 'lucide-react'
+import { AlertTriangle, Info, RotateCcw, ShieldCheck, Wallet } from 'lucide-react'
 import { ApiError, confirmBountyFunding } from '../api/client'
 import { useAuth } from '../auth/authContext'
 import { fundingIssue } from '../auth/taskAccess'
@@ -82,6 +84,7 @@ interface FundingPanelProps {
 }
 
 export function FundingPanel({ bounty, onFunded }: FundingPanelProps) {
+  useI18n()
   const wallet = useWallet()
 
   const [step, setStep] = useState<Step>('idle')
@@ -165,20 +168,13 @@ export function FundingPanel({ bounty, onFunded }: FundingPanelProps) {
       <div className="action-panel__head">
         <Info size={18} aria-hidden="true" />
         <div>
-          <h2 className="action-panel__title" id="funding-title">
-            Draft task
-          </h2>
-          <p>
-            Draft tasks are created in MergePay but their reward has not been
-            secured on Stellar yet.
-          </p>
+          <h2 className="action-panel__title" id="funding-title">{t("Draft task")}</h2>
+          <p>{t("Draft tasks are created in MergePay but their reward has not been secured on Stellar yet.")}</p>
         </div>
       </div>
 
       <p className="action-panel__network">
-        <AlertTriangle size={14} aria-hidden="true" />
-        Stellar Testnet — no real funds
-      </p>
+        <AlertTriangle size={14} aria-hidden="true" />{t("Stellar Testnet — no real funds")}</p>
 
       {submitted !== null ? (
         <SubmittedState
@@ -205,13 +201,13 @@ export function FundingPanel({ bounty, onFunded }: FundingPanelProps) {
       {error !== null ? (
         <p className="action-panel__error" role="alert">
           <AlertTriangle size={16} aria-hidden="true" />
-          {error}
+          {t(error)}
         </p>
       ) : null}
 
       {busy ? (
         <p className="visually-hidden" role="status">
-          {STEP_LABELS[step]}
+          {t(STEP_LABELS[step])}
         </p>
       ) : null}
     </section>
@@ -235,16 +231,14 @@ function FundingAction({
   onRecheck,
   onSecure,
 }: FundingActionProps) {
+  useI18n()
   const wallet = useWallet()
 
   if (configurationProblem !== null) {
     return (
       <>
-        <button type="button" className="button button--primary" disabled>
-          Secure reward
-        </button>
-        <span className="action-panel__hint">
-          Funding is disabled: {configurationProblem}
+        <button type="button" className="button button--primary" disabled>{t("Secure reward")}</button>
+        <span className="action-panel__hint">{t("Funding is disabled:")} {t(configurationProblem)}
         </span>
       </>
     )
@@ -253,8 +247,8 @@ function FundingAction({
   if (busy) {
     return (
       <button type="button" className="button button--primary" disabled>
-        <Loader size={16} aria-hidden="true" />
-        {step === 'idle' ? 'Working...' : STEP_LABELS[step]}
+        <RewardIndicator active />
+        {t(step === 'idle' ? 'Working...' : STEP_LABELS[step])}
       </button>
     )
   }
@@ -262,9 +256,7 @@ function FundingAction({
   if (wallet.status === 'connected') {
     return (
       <button type="button" className="button button--primary" onClick={onSecure}>
-        <ShieldCheck size={16} aria-hidden="true" />
-        Secure reward
-      </button>
+        <ShieldCheck size={16} aria-hidden="true" />{t("Secure reward")}</button>
     )
   }
 
@@ -272,12 +264,8 @@ function FundingAction({
     return (
       <>
         <button type="button" className="button button--secondary" onClick={onRecheck}>
-          <RotateCcw size={16} aria-hidden="true" />
-          Check network again
-        </button>
-        <span className="action-panel__hint action-panel__hint--warning">
-          Switch Freighter to Testnet
-        </span>
+          <RotateCcw size={16} aria-hidden="true" />{t("Check network again")}</button>
+        <span className="action-panel__hint action-panel__hint--warning">{t("Switch Freighter to Testnet")}</span>
       </>
     )
   }
@@ -285,9 +273,7 @@ function FundingAction({
   if (wallet.status === 'connecting') {
     return (
       <button type="button" className="button button--primary" disabled>
-        <Loader size={16} aria-hidden="true" />
-        Connecting...
-      </button>
+        <RewardIndicator active />{t("Connecting...")}</button>
     )
   }
 
@@ -295,12 +281,8 @@ function FundingAction({
     return (
       <>
         <button type="button" className="button button--secondary" onClick={onRecheck}>
-          <RotateCcw size={16} aria-hidden="true" />
-          Check for Freighter
-        </button>
-        <span className="action-panel__hint">
-          Install the Freighter browser extension to secure the reward.
-        </span>
+          <RotateCcw size={16} aria-hidden="true" />{t("Check for Freighter")}</button>
+        <span className="action-panel__hint">{t("Install the Freighter browser extension to secure the reward.")}</span>
       </>
     )
   }
@@ -308,11 +290,9 @@ function FundingAction({
   return (
     <>
       <button type="button" className="button button--primary" onClick={onConnect}>
-        <Wallet size={16} aria-hidden="true" />
-        Connect wallet to secure reward
-      </button>
+        <Wallet size={16} aria-hidden="true" />{t("Connect wallet to secure reward")}</button>
       {wallet.status === 'error' && wallet.error !== null ? (
-        <span className="action-panel__hint">{wallet.error}</span>
+        <span className="action-panel__hint">{t(wallet.error)}</span>
       ) : null}
     </>
   )
@@ -327,13 +307,13 @@ interface SubmittedStateProps {
 
 /** La transaccion ya esta en Stellar: solo queda confirmarla con MergePay. */
 function SubmittedState({ transaction, busy, step, onRetry }: SubmittedStateProps) {
+  useI18n()
   return (
     <div className="action-panel__submitted">
       <p className="action-panel__submitted-text">
-        {SUBMITTED_MESSAGES[transaction.origin]}
+        {t(SUBMITTED_MESSAGES[transaction.origin])}
       </p>
-      <p className="action-panel__hint">
-        Transaction <code title={transaction.hash}>{transaction.hash}</code>
+      <p className="action-panel__hint">{t("Transaction")} <code title={transaction.hash}>{transaction.hash}</code>
       </p>
       <div className="action-panel__action">
         <button
@@ -344,14 +324,12 @@ function SubmittedState({ transaction, busy, step, onRetry }: SubmittedStateProp
         >
           {busy ? (
             <>
-              <Loader size={16} aria-hidden="true" />
-              {step === 'idle' ? 'Working...' : STEP_LABELS[step]}
+              <RewardIndicator active />
+              {t(step === 'idle' ? 'Working...' : STEP_LABELS[step])}
             </>
           ) : (
             <>
-              <RotateCcw size={16} aria-hidden="true" />
-              Retry confirmation
-            </>
+              <RotateCcw size={16} aria-hidden="true" />{t("Retry confirmation")}</>
           )}
         </button>
       </div>

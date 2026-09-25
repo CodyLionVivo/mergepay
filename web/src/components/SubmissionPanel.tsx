@@ -1,3 +1,4 @@
+import { t, useI18n } from '../i18n'
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { AlertTriangle, GitPullRequest, Loader, RotateCcw, Send, Wallet } from 'lucide-react'
@@ -35,41 +36,37 @@ interface SubmissionPanelProps {
 }
 
 export function SubmissionPanel({ bounty, onSubmitted }: SubmissionPanelProps) {
+  useI18n()
   return (
     <section className="action-panel" aria-labelledby="submission-title">
       <div className="action-panel__head">
         <GitPullRequest size={18} aria-hidden="true" />
         <div>
-          <h2 className="action-panel__title" id="submission-title">
-            Submit your work
-          </h2>
-          <p>
-            Open a pull request against the base branch, then register it here
-            so MergePay can check it against the agreed criteria.
-          </p>
+          <h2 className="action-panel__title" id="submission-title">{t("Submit your work")}</h2>
+          <p>{t("Open a pull request against the base branch, then register it here so MergePay can check it against the agreed criteria.")}</p>
         </div>
       </div>
 
       <dl className="action-panel__facts">
         <div>
-          <dt>Assigned wallet</dt>
+          <dt>{t("Assigned wallet")}</dt>
           <dd>
             {bounty.developer_wallet !== null ? (
               <code title={bounty.developer_wallet}>
                 {abbreviateAddress(bounty.developer_wallet)}
               </code>
             ) : (
-              'Unknown'
+              t("Unknown")
             )}
           </dd>
         </div>
         <div>
-          <dt>GitHub developer</dt>
+          <dt>{t("GitHub developer")}</dt>
           <dd>
             {bounty.developer_github !== null ? (
               <code>{bounty.developer_github}</code>
             ) : (
-              'Unknown'
+              t("Unknown")
             )}
           </dd>
         </div>
@@ -81,6 +78,7 @@ export function SubmissionPanel({ bounty, onSubmitted }: SubmissionPanelProps) {
 }
 
 function SubmissionAction({ bounty, onSubmitted }: SubmissionPanelProps) {
+  useI18n()
   const wallet = useWallet()
   const auth = useAuth()
 
@@ -97,12 +95,8 @@ function SubmissionAction({ bounty, onSubmitted }: SubmissionPanelProps) {
           className="button button--secondary"
           onClick={() => void wallet.refresh()}
         >
-          <RotateCcw size={16} aria-hidden="true" />
-          Check for Freighter
-        </button>
-        <span className="action-panel__hint">
-          Install the Freighter browser extension to submit your work.
-        </span>
+          <RotateCcw size={16} aria-hidden="true" />{t("Check for Freighter")}</button>
+        <span className="action-panel__hint">{t("Install the Freighter browser extension to submit your work.")}</span>
       </div>
     )
   }
@@ -111,9 +105,7 @@ function SubmissionAction({ bounty, onSubmitted }: SubmissionPanelProps) {
     return (
       <div className="action-panel__action">
         <button type="button" className="button button--primary" disabled>
-          <Loader size={16} aria-hidden="true" />
-          Connecting...
-        </button>
+          <Loader size={16} aria-hidden="true" />{t("Connecting...")}</button>
       </div>
     )
   }
@@ -126,12 +118,8 @@ function SubmissionAction({ bounty, onSubmitted }: SubmissionPanelProps) {
           className="button button--secondary"
           onClick={() => void wallet.refresh()}
         >
-          <RotateCcw size={16} aria-hidden="true" />
-          Check network again
-        </button>
-        <span className="action-panel__hint action-panel__hint--warning">
-          Switch Freighter to Testnet
-        </span>
+          <RotateCcw size={16} aria-hidden="true" />{t("Check network again")}</button>
+        <span className="action-panel__hint action-panel__hint--warning">{t("Switch Freighter to Testnet")}</span>
       </div>
     )
   }
@@ -144,11 +132,9 @@ function SubmissionAction({ bounty, onSubmitted }: SubmissionPanelProps) {
           className="button button--primary"
           onClick={() => void wallet.connect()}
         >
-          <Wallet size={16} aria-hidden="true" />
-          Connect wallet to submit
-        </button>
+          <Wallet size={16} aria-hidden="true" />{t("Connect wallet to submit")}</button>
         {wallet.status === 'error' && wallet.error !== null ? (
-          <span className="action-panel__hint">{wallet.error}</span>
+          <span className="action-panel__hint">{t(wallet.error)}</span>
         ) : null}
       </div>
     )
@@ -164,6 +150,7 @@ function SubmissionAction({ bounty, onSubmitted }: SubmissionPanelProps) {
 }
 
 function PullRequestForm({ bounty, onSubmitted }: SubmissionPanelProps) {
+  useI18n()
   const [url, setUrl] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<SubmissionError | null>(null)
@@ -199,7 +186,7 @@ function PullRequestForm({ bounty, onSubmitted }: SubmissionPanelProps) {
   return (
     <form className="action-panel__form" onSubmit={handleSubmit} noValidate>
       <div className="field">
-        <label htmlFor="pull-request-url">Pull request URL</label>
+        <label htmlFor="pull-request-url">{t("Pull request URL")}</label>
         <input
           id="pull-request-url"
           type="url"
@@ -213,20 +200,16 @@ function PullRequestForm({ bounty, onSubmitted }: SubmissionPanelProps) {
           aria-describedby="pull-request-url-hint"
           placeholder="https://github.com/owner/repository/pull/123"
         />
-        <p className="field__hint" id="pull-request-url-hint">
-          The pull request must be authored by{' '}
+        <p className="field__hint" id="pull-request-url-hint">{t("The pull request must be authored by")}{' '}
           {bounty.developer_github !== null ? (
             <code>{bounty.developer_github}</code>
           ) : (
-            'the assigned developer'
+            t("the assigned developer")
           )}
           .
         </p>
         {showUrlError ? (
-          <p className="field__error">
-            Use https://github.com/owner/repository/pull/number, with no query or
-            fragment.
-          </p>
+          <p className="field__error">{t("Use https://github.com/owner/repository/pull/number, with no query or fragment.")}</p>
         ) : null}
       </div>
 
@@ -238,14 +221,10 @@ function PullRequestForm({ bounty, onSubmitted }: SubmissionPanelProps) {
         >
           {submitting ? (
             <>
-              <Loader size={16} aria-hidden="true" />
-              Checking pull request...
-            </>
+              <Loader size={16} aria-hidden="true" />{t("Checking pull request...")}</>
           ) : (
             <>
-              <Send size={16} aria-hidden="true" />
-              Submit pull request
-            </>
+              <Send size={16} aria-hidden="true" />{t("Submit pull request")}</>
           )}
         </button>
       </div>
@@ -254,7 +233,7 @@ function PullRequestForm({ bounty, onSubmitted }: SubmissionPanelProps) {
         <div className="action-panel__error" role="alert">
           <AlertTriangle size={16} aria-hidden="true" />
           <div>
-            <p>{error.message}</p>
+            <p>{t(error.message)}</p>
             {error.reasons.length > 0 ? (
               <ul className="action-panel__reasons">
                 {error.reasons.map((reason) => (
@@ -267,9 +246,7 @@ function PullRequestForm({ bounty, onSubmitted }: SubmissionPanelProps) {
       ) : null}
 
       {submitting ? (
-        <p className="visually-hidden" role="status">
-          Checking pull request...
-        </p>
+        <p className="visually-hidden" role="status">{t("Checking pull request...")}</p>
       ) : null}
     </form>
   )

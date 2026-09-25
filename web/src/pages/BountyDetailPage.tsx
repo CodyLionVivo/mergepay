@@ -1,3 +1,4 @@
+import { t, useI18n } from '../i18n'
 import { useEffect, useState } from 'react'
 import { AlertTriangle, CircleDashed, RotateCcw } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
@@ -9,6 +10,8 @@ import { BountyStatusBadge } from '../components/BountyStatusBadge'
 import { AssignmentPanel } from '../components/AssignmentPanel'
 import { FundingPanel } from '../components/FundingPanel'
 import { OnChainEvidencePanel } from '../components/OnChainEvidencePanel'
+import { EscrowCard } from '../components/EscrowCard'
+import { TransactionSuccess } from '../components/TransactionSuccess'
 import { PageHeader } from '../components/PageHeader'
 import { SubmissionPanel } from '../components/SubmissionPanel'
 import { SubmissionSummary } from '../components/SubmissionSummary'
@@ -60,6 +63,7 @@ function NoticePanel({
   title: string
   children?: React.ReactNode
 }) {
+  useI18n()
   return (
     <div className={`detail-state panel detail-state--${tone}`} role="alert">
       <AlertTriangle
@@ -74,10 +78,12 @@ function NoticePanel({
 }
 
 export function BountyDetailPage() {
+  useI18n()
   const { id } = useParams<{ id: string }>()
   const bountyId = parseBountyId(id)
 
   const [result, setResult] = useState<LoadResult | null>(null)
+  const [fundingConfirmed, setFundingConfirmed] = useState(false)
   const [reloadToken, setReloadToken] = useState(0)
 
   const auth = useAuth()
@@ -150,13 +156,9 @@ export function BountyDetailPage() {
   if (bountyId === null) {
     return (
       <div className="shell">
-        <NoticePanel tone="muted" title="That task link is not valid">
-          <p className="detail-state__text">
-            Task identifiers are positive numbers, for example /bounties/1.
-          </p>
-          <Link className="button button--secondary" to="/">
-            Back to tasks
-          </Link>
+        <NoticePanel tone="muted" title={t("That task link is not valid")}>
+          <p className="detail-state__text">{t("Task identifiers are positive numbers, for example /bounties/1.")}</p>
+          <Link className="button button--secondary" to="/">{t("Back to tasks")}</Link>
         </NoticePanel>
       </div>
     )
@@ -165,9 +167,7 @@ export function BountyDetailPage() {
   if (state === 'loading') {
     return (
       <div className="shell">
-        <p className="visually-hidden" role="status">
-          Loading task
-        </p>
+        <p className="visually-hidden" role="status">{t("Loading task")}</p>
         <div className="detail-skeleton-header" aria-hidden="true">
           <div className="skeleton skeleton--short" />
           <div className="skeleton skeleton--medium" />
@@ -190,13 +190,9 @@ export function BountyDetailPage() {
   if (state === 'not-found') {
     return (
       <div className="shell">
-        <NoticePanel tone="muted" title="Task not found">
-          <p className="detail-state__text">
-            It may have been removed or this link is unavailable.
-          </p>
-          <Link className="button button--secondary" to="/">
-            Back to tasks
-          </Link>
+        <NoticePanel tone="muted" title={t("Task not found")}>
+          <p className="detail-state__text">{t("It may have been removed or this link is unavailable.")}</p>
+          <Link className="button button--secondary" to="/">{t("Back to tasks")}</Link>
         </NoticePanel>
       </div>
     )
@@ -205,18 +201,16 @@ export function BountyDetailPage() {
   if (state === 'error' || bounty === null) {
     return (
       <div className="shell">
-        <NoticePanel tone="error" title="Unable to load this task.">
+        <NoticePanel tone="error" title={t("Unable to load this task.")}>
           {errorDetail ? (
-            <p className="detail-state__text">{errorDetail}</p>
+            <p className="detail-state__text">{t(errorDetail)}</p>
           ) : null}
           <button
             type="button"
             className="button button--secondary"
             onClick={() => setReloadToken((token) => token + 1)}
           >
-            <RotateCcw size={16} aria-hidden="true" />
-            Try again
-          </button>
+            <RotateCcw size={16} aria-hidden="true" />{t("Try again")}</button>
         </NoticePanel>
       </div>
     )
@@ -249,39 +243,41 @@ export function BountyDetailPage() {
 
   return (
     <div className="shell bounty-detail">
-      <Link className="back-link" to="/">Back to bounties</Link>
+      <Link className="back-link" to="/">{t("Back to bounties")}</Link>
       <PageHeader eyebrow={`Bounty #${bounty.id}`} title={bounty.title} actions={<BountyStatusBadge status={bounty.status} />} />
       <BountyLifecycle status={bounty.status} />
+      {fundingConfirmed && bounty.create_tx_hash && bounty.status === 'OPEN_FUNDED' ? <TransactionSuccess kind="funding" /> : null}
       <div className="bounty-layout">
-        <aside className="bounty-sidebar" aria-label="Reward and next action">
+        <aside className="bounty-sidebar" aria-label={t("Reward and next action")}>
+          <EscrowCard amount={formatXlm(bounty.amount_stroops)} state={bounty.status === 'PAID' && bounty.release_tx_hash ? 'released' : bounty.status.endsWith('_REFUNDED') ? 'refunded' : bounty.create_tx_hash ? 'funded' : 'pending'} wallet={bounty.client_wallet} transaction={bounty.release_tx_hash || bounty.create_tx_hash} />
           <section className="reward-summary panel">
-            <p className="hero__eyebrow">Reward</p>
-            <p className="detail-amount">{formatXlm(bounty.amount_stroops)} <span>XLM units</span></p>
-            <p className="reward-summary__state">{bounty.status === 'PAID' ? 'Payment confirmed by MergePay' : bounty.status === 'ELIGIBLE' ? 'Verified - payment not confirmed' : bounty.status === 'DRAFT' ? 'Draft - funding required' : ['CANCELLED_REFUNDED', 'EXPIRED_REFUNDED'].includes(bounty.status) ? 'Reward returned' : 'Funding recorded - not paid'}</p>
-            <dl className="detail-list"><div><dt>Deadline</dt><dd>{formatUnixSeconds(bounty.deadline_unix)}</dd></div>
-              {bounty.developer_github ? <div><dt>Assigned developer</dt><dd>{bounty.developer_github}</dd></div> : null}
+            <p className="hero__eyebrow">{t("Reward")}</p>
+            <p className="detail-amount">{formatXlm(bounty.amount_stroops)} <span>{t("XLM units")}</span></p>
+            <p className="reward-summary__state">{bounty.status === 'PAID' ? t("Payment confirmed by MergePay") : bounty.status === 'ELIGIBLE' ? t("Verified - payment not confirmed") : bounty.status === 'DRAFT' ? t("Draft - funding required") : ['CANCELLED_REFUNDED', 'EXPIRED_REFUNDED'].includes(bounty.status) ? t("Reward returned") : t("Funding recorded - not paid")}</p>
+            <dl className="detail-list"><div><dt>{t("Deadline")}</dt><dd>{formatUnixSeconds(bounty.deadline_unix)}</dd></div>
+              {bounty.developer_github ? <div><dt>{t("Assigned developer")}</dt><dd>{bounty.developer_github}</dd></div> : null}
             </dl>
-            <details className="reward-note"><summary>Testnet reward information</summary><p>Amounts use 7-decimal XLM display units. The API does not identify the configured escrow token. Confirm the deployment uses native XLM before funding.</p></details>
+            <details className="reward-note"><summary>{t("Testnet reward information")}</summary><p>{t("Amounts use 7-decimal XLM display units. The API does not identify the configured escrow token. Confirm the deployment uses native XLM before funding.")}</p></details>
           </section>
-          {bounty.status === 'DRAFT' ? <FundingPanel bounty={bounty} onFunded={replaceBounty} /> : null}
+          {bounty.status === 'DRAFT' ? <FundingPanel bounty={bounty} onFunded={(updated) => { replaceBounty(updated); setFundingConfirmed(Boolean(updated.create_tx_hash)) }} /> : null}
           {bounty.status === 'OPEN_FUNDED' ? <AssignmentPanel bounty={bounty} onAssigned={replaceBounty} /> : null}
           {bounty.status === 'ASSIGNED' ? <SubmissionPanel bounty={bounty} onSubmitted={handleSubmitted} /> : null}
-          {SUBMITTED_STATUSES.has(bounty.status) ? <a className="button button--secondary" href="#verification">View verification & payment</a> : null}
+          {SUBMITTED_STATUSES.has(bounty.status) ? <a className="button button--secondary" href="#verification">{t("View verification & payment")}</a> : null}
         </aside>
         <div className="bounty-content">
-          <section className="bounty-section"><h2>About this bounty</h2><p className="detail-body">{bounty.description}</p>
-            <dl className="repository-summary"><div><dt>Repository</dt><dd><code>{bounty.repo_owner}/{bounty.repo_name}</code></dd></div><div><dt>Base branch</dt><dd><code>{bounty.base_branch}</code></dd></div></dl>
+          <section className="bounty-section"><h2>{t("About this bounty")}</h2><p className="detail-body">{bounty.description}</p>
+            <dl className="repository-summary"><div><dt>{t("Repository")}</dt><dd><code>{bounty.repo_owner}/{bounty.repo_name}</code></dd></div><div><dt>{t("Base branch")}</dt><dd><code>{bounty.base_branch}</code></dd></div></dl>
           </section>
-          <section className="bounty-section"><h2>Acceptance criteria</h2><p className="panel__hint">Agreed requirements, not individual pass results. Verification checks are shown separately below.</p>
-            <ol className="criteria-list">{orderedCriteria.map((criterion) => <li key={criterion.id}><CircleDashed size={16} aria-hidden="true" /><span>{criterion.description}{!criterion.required ? <small> - Optional</small> : null}</span></li>)}</ol>
+          <section className="bounty-section"><h2>{t("Acceptance criteria")}</h2><p className="panel__hint">{t("Agreed requirements, not individual pass results. Verification checks are shown separately below.")}</p>
+            <ol className="criteria-list">{orderedCriteria.map((criterion) => <li key={criterion.id}><CircleDashed size={16} aria-hidden="true" /><span>{criterion.description}{!criterion.required ? <small>{t("- Optional")}</small> : null}</span></li>)}</ol>
           </section>
           {SUBMITTED_STATUSES.has(bounty.status) ? <>
             <SubmissionSummary bounty={bounty} submission={work.submission} onRetry={work.reload} />
             <div id="verification"><VerificationPanel bounty={bounty} latestVerification={work.verification} onBountyUpdated={replaceBounty} onVerificationUpdated={work.setVerification} onSubmissionUpdated={work.setSubmission} onReload={work.reload} /></div>
-          </> : <section className="bounty-section"><h2>Pull request & verification</h2><p className="detail-empty">{bounty.status === 'ASSIGNED' ? 'Submit your open pull request using the action panel. Then run verification to check its latest commit.' : 'After a developer accepts this bounty, their pull request and verification results appear here.'}</p></section>}
-          <details className="technical-disclosure"><summary>Technical details & on-chain evidence</summary>
-            <dl className="detail-list"><div><dt>Base commit</dt><dd>{bounty.base_sha ? <><code>{abbreviateHash(bounty.base_sha)}</code><CopyButton value={bounty.base_sha} label="base commit" /></> : 'Recorded when funding is confirmed'}</dd></div><div><dt>Criteria commitment</dt><dd>{bounty.criteria_hash ? <><code>{abbreviateHash(bounty.criteria_hash)}</code><CopyButton value={bounty.criteria_hash} label="criteria commitment" /></> : 'Not recorded'}</dd></div></dl>
-            {bounty.create_tx_hash !== null ? <OnChainEvidencePanel bounty={bounty} submission={SUBMITTED_STATUSES.has(bounty.status) && work.submission.status === 'ready' ? work.submission.value : null} verification={work.verification} /> : <p className="detail-empty">No funding transaction recorded yet.</p>}
+          </> : <section className="bounty-section"><h2>{t("Pull request & verification")}</h2><p className="detail-empty">{bounty.status === 'ASSIGNED' ? t("Submit your open pull request using the action panel. Then run verification to check its latest commit.") : t("After a developer accepts this bounty, their pull request and verification results appear here.")}</p></section>}
+          <details className="technical-disclosure"><summary>{t("Technical details & on-chain evidence")}</summary>
+            <dl className="detail-list"><div><dt>{t("Base commit")}</dt><dd>{bounty.base_sha ? <><code>{abbreviateHash(bounty.base_sha)}</code><CopyButton value={bounty.base_sha} label={t("base commit")} /></> : t("Recorded when funding is confirmed")}</dd></div><div><dt>{t("Criteria commitment")}</dt><dd>{bounty.criteria_hash ? <><code>{abbreviateHash(bounty.criteria_hash)}</code><CopyButton value={bounty.criteria_hash} label={t("criteria commitment")} /></> : t("Not recorded")}</dd></div></dl>
+            {bounty.create_tx_hash !== null ? <OnChainEvidencePanel bounty={bounty} submission={SUBMITTED_STATUSES.has(bounty.status) && work.submission.status === 'ready' ? work.submission.value : null} verification={work.verification} /> : <p className="detail-empty">{t("No funding transaction recorded yet.")}</p>}
           </details>
         </div>
       </div>

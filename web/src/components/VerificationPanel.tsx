@@ -1,3 +1,5 @@
+import { TransactionSuccess } from './TransactionSuccess'
+import { getLanguage, t, useI18n } from '../i18n'
 import { useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
@@ -97,6 +99,7 @@ export function VerificationPanel({
   onSubmissionUpdated,
   onReload,
 }: VerificationPanelProps) {
+  useI18n()
   const auth = useAuth()
 
   const [running, setRunning] = useState<Running>(null)
@@ -195,27 +198,23 @@ export function VerificationPanel({
 
   if (latestVerification.status === 'loading') {
     return (
-      <PanelFrame tone="info" Icon={ShieldCheck} title="Verification" busy>
-        <p className="action-panel__hint" role="status">
-          Loading the latest verification...
-        </p>
+      <PanelFrame tone="info" Icon={ShieldCheck} title={t("Verification")} busy>
+        <p className="action-panel__hint" role="status">{t("Loading the latest verification...")}</p>
       </PanelFrame>
     )
   }
 
   if (latestVerification.status === 'error') {
     return (
-      <PanelFrame tone="info" Icon={ShieldCheck} title="Verification">
+      <PanelFrame tone="info" Icon={ShieldCheck} title={t("Verification")}>
         <div className="action-panel__error" role="alert">
           <AlertTriangle size={16} aria-hidden="true" />
           <div className="action-panel__error-body">
-            <p>Unable to load the latest verification.</p>
+            <p>{t("Unable to load the latest verification.")}</p>
             <p className="action-panel__hint">{latestVerification.message}</p>
             <div className="action-panel__action">
               <button type="button" className="button button--secondary" onClick={onReload}>
-                <RotateCcw size={16} aria-hidden="true" />
-                Try again
-              </button>
+                <RotateCcw size={16} aria-hidden="true" />{t("Try again")}</button>
             </div>
           </div>
         </div>
@@ -256,12 +255,12 @@ export function VerificationPanel({
         {running === 'verify' ? (
           <>
             <Loader size={16} aria-hidden="true" />
-            {runningLabel}
+            {t(runningLabel)}
           </>
         ) : (
           <>
             <Icon size={16} aria-hidden="true" />
-            {label}
+            {t(label)}
           </>
         )}
       </button>
@@ -273,12 +272,12 @@ export function VerificationPanel({
       {error !== null ? (
         <div className="action-panel__error" role="alert">
           <AlertTriangle size={16} aria-hidden="true" />
-          <p>{error}</p>
+          <p>{t(error)}</p>
         </div>
       ) : null}
       {busy ? (
         <p className="visually-hidden" role="status">
-          {runningLabel}
+          {t(runningLabel)}
         </p>
       ) : null}
     </>
@@ -288,25 +287,21 @@ export function VerificationPanel({
 
   if (view === 'paid') {
     return (
-      <PanelFrame tone="success" Icon={BadgeCheck} title="Payout completed" highlight>
-        <p className="verification-panel__lead">
-          The pull request passed verification and the secured reward was released
-          automatically on Stellar Testnet.
-        </p>
+      <PanelFrame tone="success" Icon={BadgeCheck} title={t("Payout completed")} highlight>
+        {bounty.release_tx_hash?.trim() ? <TransactionSuccess kind="payout" /> : null}
+        <p className="verification-panel__lead">{t("The pull request passed verification and the secured reward was released automatically on Stellar Testnet.")}</p>
 
         <p className="action-panel__network">
-          <AlertTriangle size={14} aria-hidden="true" />
-          Stellar Testnet — no real funds
-        </p>
+          <AlertTriangle size={14} aria-hidden="true" />{t("Stellar Testnet — no real funds")}</p>
 
         <dl className="action-panel__facts">
           <div>
-            <dt>Reward</dt>
+            <dt>{t("Reward")}</dt>
             <dd>{formatXlm(bounty.amount_stroops)} XLM</dd>
           </div>
           {bounty.developer_wallet !== null ? (
             <div>
-              <dt>Developer</dt>
+              <dt>{t("Developer")}</dt>
               <dd>
                 <code title={bounty.developer_wallet}>
                   {abbreviateAddress(bounty.developer_wallet)}
@@ -317,11 +312,11 @@ export function VerificationPanel({
           {latest !== null ? (
             <>
               <div>
-                <dt>Verification</dt>
+                <dt>{t("Verification")}</dt>
                 <dd>{latest.result.status}</dd>
               </div>
               <div>
-                <dt>Head commit</dt>
+                <dt>{t("Head commit")}</dt>
                 <dd>
                   <code title={latest.result.head_sha}>
                     {abbreviateHash(latest.result.head_sha)}
@@ -334,7 +329,7 @@ export function VerificationPanel({
 
         {bounty.release_tx_hash !== null ? (
           <details className="technical-disclosure">
-            <summary>Payout transaction</summary>
+            <summary>{t("Payout transaction")}</summary>
             <code>{bounty.release_tx_hash}</code>
           </details>
         ) : null}
@@ -345,20 +340,16 @@ export function VerificationPanel({
 
   if (view === 'eligible') {
     return (
-      <PanelFrame tone="success" Icon={ShieldCheck} title="Code verified">
+      <PanelFrame tone="success" Icon={ShieldCheck} title={t("Code verified")}>
         {latest?.result.eligible_for_payout ? <EligibleTag /> : null}
 
         <p className="verification-panel__notice">
-          <AlertTriangle size={16} aria-hidden="true" />
-          All agreed checks passed, but the Stellar payout has not been confirmed.
-        </p>
+          <AlertTriangle size={16} aria-hidden="true" />{t("All agreed checks passed, but the Stellar payout has not been confirmed.")}</p>
 
         {gatedAction(
           <>
             {verifyButton('Retry settlement', RotateCcw, true)}
-            <span className="action-panel__hint">
-              MergePay checks the pull request again before retrying the payout.
-            </span>
+            <span className="action-panel__hint">{t("MergePay checks the pull request again before retrying the payout.")}</span>
           </>,
         )}
 
@@ -370,18 +361,13 @@ export function VerificationPanel({
 
   if (view === 'ready') {
     return (
-      <PanelFrame tone="info" Icon={ShieldCheck} title="Ready for verification">
-        <p className="verification-panel__lead">
-          MergePay will inspect the pull request and the required GitHub checks. A
-          passing result releases the secured reward automatically.
-        </p>
+      <PanelFrame tone="info" Icon={ShieldCheck} title={t("Ready for verification")}>
+        <p className="verification-panel__lead">{t("MergePay inspects the pull request and required GitHub checks. A passing result triggers a payout attempt; payment is confirmed separately.")}</p>
 
         {gatedAction(
           <>
             {verifyButton('Run verification', PlayCircle, true)}
-            <span className="action-panel__hint">
-              No manual payment approval is required after a passing verification.
-            </span>
+            <span className="action-panel__hint">{t("No manual payment approval is required after a passing verification.")}</span>
           </>,
         )}
 
@@ -394,8 +380,8 @@ export function VerificationPanel({
     // PASS ya guardado pero el bounty leido aun no dice ELIGIBLE ni PAID: solo
     // pasa si fallo el refresco posterior, asi que se ofrece releerlo.
     return (
-      <PanelFrame tone="success" Icon={ShieldCheck} title="Code verified">
-        <p className="verification-panel__lead">All required checks passed.</p>
+      <PanelFrame tone="success" Icon={ShieldCheck} title={t("Code verified")}>
+        <p className="verification-panel__lead">{t("All required checks passed.")}</p>
         {latest?.result.eligible_for_payout ? <EligibleTag /> : null}
 
         <div className="action-panel__action">
@@ -408,13 +394,11 @@ export function VerificationPanel({
             {running === 'refresh' ? (
               <>
                 <Loader size={16} aria-hidden="true" />
-                {runningLabel}
+                {t(runningLabel)}
               </>
             ) : (
               <>
-                <RefreshCw size={16} aria-hidden="true" />
-                Refresh payout status
-              </>
+                <RefreshCw size={16} aria-hidden="true" />{t("Refresh payout status")}</>
             )}
           </button>
         </div>
@@ -427,10 +411,8 @@ export function VerificationPanel({
 
   if (view === 'fail') {
     return (
-      <PanelFrame tone="danger" Icon={XCircle} title="Changes required">
-        <p className="verification-panel__lead">
-          The pull request does not currently satisfy the agreed verification rules.
-        </p>
+      <PanelFrame tone="danger" Icon={XCircle} title={t("Changes required")}>
+        <p className="verification-panel__lead">{t("The pull request does not currently satisfy the agreed verification rules.")}</p>
 
         {latest !== null && latest.result.reasons.length > 0 ? (
           <ul className="action-panel__reasons">
@@ -443,10 +425,7 @@ export function VerificationPanel({
         {gatedAction(
           <>
             {verifyButton('Check again', RotateCcw, true)}
-            <span className="action-panel__hint">
-              Push fixes to the same pull request, then check again. No new
-              submission is needed.
-            </span>
+            <span className="action-panel__hint">{t("Push fixes to the same pull request, then check again. No new submission is needed.")}</span>
           </>,
         )}
 
@@ -457,10 +436,8 @@ export function VerificationPanel({
   }
 
   return (
-    <PanelFrame tone="warning" Icon={Clock} title="Checks still running">
-      <p className="verification-panel__lead">
-        One or more required GitHub checks are not complete yet.
-      </p>
+    <PanelFrame tone="warning" Icon={Clock} title={t("Checks still running")}>
+      <p className="verification-panel__lead">{t("One or more required GitHub checks are not complete yet.")}</p>
 
       {gatedAction(verifyButton('Check again', RotateCcw, true))}
 
@@ -485,6 +462,7 @@ function PanelFrame({
   highlight?: boolean
   children: ReactNode
 }) {
+  useI18n()
   const classes = [
     'action-panel',
     'verification-panel',
@@ -510,11 +488,10 @@ function PanelFrame({
 }
 
 function EligibleTag() {
+  useI18n()
   return (
     <p className="verification-tag verification-tag--success">
-      <CheckCircle2 size={14} aria-hidden="true" />
-      Eligible for automatic payout
-    </p>
+      <CheckCircle2 size={14} aria-hidden="true" />{t("Eligible for automatic payout")}</p>
   )
 }
 
@@ -583,32 +560,27 @@ const RULES: { key: keyof PullRequestVerificationResult; label: string }[] = [
   { key: 'protected_files_valid', label: 'Protected files unchanged' },
 ]
 
-const CHECKED_AT = new Intl.DateTimeFormat(undefined, {
-  dateStyle: 'medium',
-  timeStyle: 'short',
-})
 
 function formatCheckedAt(value: string): string {
   // El backend guarda UTC sin zona; sin la Z el navegador lo leeria como local.
   const hasZone = /(?:Z|[+-]\d{2}:?\d{2})$/.test(value)
   const parsed = new Date(hasZone ? value : `${value}Z`)
 
-  return Number.isNaN(parsed.getTime()) ? value : CHECKED_AT.format(parsed)
+  return Number.isNaN(parsed.getTime()) ? value : new Intl.DateTimeFormat(getLanguage(), { dateStyle: 'medium', timeStyle: 'short' }).format(parsed)
 }
 
 function VerificationDetails({ record }: { record: VerificationRecord }) {
+  useI18n()
   const { result } = record
 
   return (
     <div className="verification-details">
-      <p className="verification-details__meta">
-        Commit <code title={result.head_sha}>{abbreviateHash(result.head_sha)}</code>
-        {' · '}
-        Checked {formatCheckedAt(record.created_at)}
+      <p className="verification-details__meta">{t("Commit")} <code title={result.head_sha}>{abbreviateHash(result.head_sha)}</code>
+        {' · '}{t("Checked")} {formatCheckedAt(record.created_at)}
       </p>
 
       <div className="verification-details__group">
-        <h3 className="verification-details__title">Required checks</h3>
+        <h3 className="verification-details__title">{t("Required checks")}</h3>
         <ul className="verification-list">
           {result.checks.map((check) => {
             const state = describeCheck(check)
@@ -616,9 +588,8 @@ function VerificationDetails({ record }: { record: VerificationRecord }) {
             return (
               <VerificationItem key={check.name} state={state}>
                 <code>{check.name}</code>
-                <span className="verification-item__detail">
-                  status: {check.status}
-                  {check.conclusion !== null ? ` · conclusion: ${check.conclusion}` : ''}
+                <span className="verification-item__detail">{t("status:")} {check.status}
+                  {check.conclusion !== null ? ` · ${t("conclusion:")} ${check.conclusion}` : ''}
                 </span>
               </VerificationItem>
             )
@@ -627,14 +598,14 @@ function VerificationDetails({ record }: { record: VerificationRecord }) {
       </div>
 
       <div className="verification-details__group">
-        <h3 className="verification-details__title">Verification rules</h3>
+        <h3 className="verification-details__title">{t("Verification rules")}</h3>
         <ul className="verification-list">
           {RULES.map((rule) => (
             <VerificationItem
               key={rule.key}
               state={result[rule.key] === true ? PASSED_RULE : FAILED_RULE}
             >
-              <span>{rule.label}</span>
+              <span>{t(rule.label)}</span>
               {rule.key === 'protected_files_valid' &&
               !result.protected_files_valid &&
               result.protected_files_modified.length > 0 ? (
@@ -661,13 +632,14 @@ function VerificationItem({
   state: ItemState
   children: ReactNode
 }) {
+  useI18n()
   const { Icon } = state
 
   return (
     <li className={`verification-item verification-item--${state.tone}`}>
       <Icon size={16} aria-hidden="true" />
       <div className="verification-item__body">{children}</div>
-      <span className="verification-item__state">{state.label}</span>
+      <span className="verification-item__state">{t(state.label)}</span>
     </li>
   )
 }

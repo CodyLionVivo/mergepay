@@ -1,12 +1,14 @@
+import { t, useI18n } from '../i18n'
 import { useEffect, useState } from 'react'
-import { AlertTriangle, ArrowRight, ListChecks, Plus, RotateCcw } from 'lucide-react'
+import { AlertTriangle, Plus, RotateCcw } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { ApiError, getBounties } from '../api/client'
-import { BountyStatusBadge } from '../components/BountyStatusBadge'
+import { BountyCarousel } from '../components/BountyCarousel'
+import { ProductFlowCarousel } from '../components/ProductFlowCarousel'
+import { MergePayCard } from '../components/MergePayCard'
 import type { Bounty } from '../types/bounty'
-import { formatUnixSeconds } from '../utils/format'
-import { formatXlm } from '../utils/xlm'
 import './MarketplacePage.css'
+import './MarketplaceBoard.css'
 
 type LoadState = 'loading' | 'error' | 'ready'
 
@@ -20,6 +22,7 @@ interface LoadResult {
 }
 
 export function MarketplacePage() {
+  useI18n()
   const [result, setResult] = useState<LoadResult | null>(null)
   const [reloadToken, setReloadToken] = useState(0)
 
@@ -61,33 +64,23 @@ export function MarketplacePage() {
   return (
     <div className="shell">
       <section className="hero">
-        <p className="hero__eyebrow">Automated rewards for verified code</p>
-        <h1 className="hero__title">Get paid when the code passes.</h1>
-        <p className="hero__lede">
-          Development tasks with rewards secured upfront and released when the
-          agreed checks pass.
-        </p>
+        <p className="hero__eyebrow">{t("The developer bounty marketplace")}</p>
+        <h1 className="hero__title">{t("Good code. Clear rewards.")}</h1>
+        <p className="hero__lede">{t("Find your next contribution. Build through GitHub with rewards funded upfront on Stellar.")}</p>
 
         <div className="hero__actions">
-          <a className="button button--primary" href="#open-tasks">
-            Explore bounties
-            <ArrowRight size={16} aria-hidden="true" />
-          </a>
-          <Link className="button button--secondary" to="/bounties/new">
-            Create bounty
-          </Link>
+          <Link className="button button--primary" to="/bounties/new">{t("Create bounty")}</Link>
         </div>
       </section>
 
-      <p className="marketplace-network">Stellar Testnet - Rewards shown in XLM display units</p>
+      <p className="marketplace-network">{t("Stellar Testnet - Rewards shown in XLM display units")}</p>
+      <div className="marketplace-board">
       <section className="tasks" id="open-tasks" aria-labelledby="open-tasks-title">
         <div className="tasks__head">
-          <h2 className="tasks__title" id="open-tasks-title">
-            Available bounties
-          </h2>
+          <h2 className="tasks__title" id="open-tasks-title">{t("Available bounties")}</h2>
           {state === 'ready' && bounties.length > 0 ? (
             <p className="tasks__note">
-              {bounties.length === 1 ? '1 task' : `${bounties.length} tasks`}
+              {t(bounties.length === 1 ? '{count} task' : '{count} tasks', { count: bounties.length })}
             </p>
           ) : null}
         </div>
@@ -110,9 +103,7 @@ export function MarketplacePage() {
         ) : null}
 
         {state === 'loading' ? (
-          <p className="visually-hidden" role="status">
-            Loading tasks
-          </p>
+          <p className="visually-hidden" role="status">{t("Loading tasks")}</p>
         ) : null}
 
         {state === 'error' ? (
@@ -122,72 +113,34 @@ export function MarketplacePage() {
               size={22}
               aria-hidden="true"
             />
-            <h3 className="tasks__state-title">Unable to load tasks.</h3>
-            {errorDetail ? (
-              <p className="tasks__state-text">{errorDetail}</p>
-            ) : null}
+            <h3 className="tasks__state-title">{t("Unable to load bounties")}</h3>
+            <p className="tasks__state-text">{t("MergePay couldn’t reach the service.")}</p>
+            {errorDetail ? <details className="error-details"><summary>{t("Technical details")}</summary><p>{t(errorDetail)}</p></details> : null}
             <button
               type="button"
               className="button button--secondary"
               onClick={() => setReloadToken((token) => token + 1)}
             >
-              <RotateCcw size={16} aria-hidden="true" />
-              Try again
-            </button>
+              <RotateCcw size={16} aria-hidden="true" />{t("Try again")}</button>
           </div>
         ) : null}
 
         {state === 'ready' && bounties.length === 0 ? (
           <div className="tasks__state panel">
-            <h3 className="tasks__state-title">No available bounties</h3>
-            <p className="tasks__state-text">
-              Fund a bounty to make it available here. Drafts and assigned work are not publicly listed.
-            </p>
+            <h3 className="tasks__state-title">{t("No available bounties")}</h3>
+            <p className="tasks__state-text">{t("Fund a bounty to make it available here. Drafts and assigned work are not publicly listed.")}</p>
             <Link className="button button--primary" to="/bounties/new">
-              <Plus size={16} aria-hidden="true" />
-              Create bounty
-            </Link>
+              <Plus size={16} aria-hidden="true" />{t("Create bounty")}</Link>
           </div>
         ) : null}
 
         {state === 'ready' && bounties.length > 0 ? (
-          <ul className="tasks__grid">
-            {bounties.map((bounty) => (
-              <li key={bounty.id}>
-                <Link to={`/bounties/${bounty.id}`} className="task-card card">
-                  <BountyStatusBadge status={bounty.status} />
-
-                  <h3 className="task-card__title">{bounty.title}</h3>
-                  <p className="task-card__description">{bounty.description}</p>
-
-                  <p className="task-card__repo">
-                    <code>
-                      {bounty.repo_owner}/{bounty.repo_name}
-                    </code>
-                  </p>
-
-                  <dl className="task-card__meta">
-                    <div className="task-card__metric">
-                      <dt>Reward</dt>
-                      <dd className="task-card__reward">
-                        {formatXlm(bounty.amount_stroops)} XLM
-                      </dd>
-                    </div>
-                    <div className="task-card__metric">
-                      <dt>Criteria</dt>
-                      <dd>
-                        <ListChecks size={14} aria-hidden="true" />
-                        {bounty.criteria.length}
-                      </dd>
-                    </div>
-                  </dl>
-                  <p className="task-card__deadline">Deadline - {formatUnixSeconds(bounty.deadline_unix)}</p>
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <BountyCarousel bounties={bounties} />
         ) : null}
       </section>
+      <MergePayCard />
+      </div>
+      <ProductFlowCarousel />
     </div>
   )
 }

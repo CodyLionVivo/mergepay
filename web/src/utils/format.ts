@@ -1,11 +1,8 @@
-const DATE_TIME = new Intl.DateTimeFormat(undefined, {
-  dateStyle: 'medium',
-  timeStyle: 'short',
-})
+import { getLanguage } from '../i18n'
 
 /** `deadline_unix` llega en segundos y se muestra en la zona del navegador. */
 export function formatUnixSeconds(seconds: number): string {
-  return DATE_TIME.format(new Date(seconds * 1000))
+  return new Intl.DateTimeFormat(getLanguage(), { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(seconds * 1000))
 }
 
 /** Convierte el valor de un `datetime-local` (hora local) a segundos unix. */

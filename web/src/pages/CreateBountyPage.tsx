@@ -1,9 +1,11 @@
+import { t, useI18n } from '../i18n'
 import { useEffect, useRef, useState } from 'react'
-import { AlertTriangle, Plus, Trash2 } from 'lucide-react'
+import { AlertTriangle, Check, Plus, Trash2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { ApiError, createBounty } from '../api/client'
 import { useAuth } from '../auth/authContext'
 import { AuthPrompt } from '../components/AuthPrompt'
+import { EscrowCard } from '../components/EscrowCard'
 import { PageHeader } from '../components/PageHeader'
 import { localDateTimeToUnixSeconds } from '../utils/format'
 import { xlmToStroops } from '../utils/xlm'
@@ -31,6 +33,7 @@ interface ValidForm {
 }
 
 export function CreateBountyPage() {
+  useI18n()
   const navigate = useNavigate()
   const [step, setStep] = useState(0)
   const stepTitle = useRef<HTMLHeadingElement>(null)
@@ -206,27 +209,27 @@ export function CreateBountyPage() {
   }
 
   return (
-    <div className="shell">
+    <div className="shell wizard-shell">
       <PageHeader
-        eyebrow="New bounty"
-        title="A clear brief. A secured reward."
-        description="Define what needs to be built, how it will be verified, and the reward secured for the developer."
+        eyebrow={t("New bounty")}
+        title={t("A clear brief. A secured reward.")}
+        description={t("Define what needs to be built, how it will be verified, and the reward secured for the developer.")}
       />
 
-      <ol className="form-steps" aria-label="Create bounty progress">
-        {steps.map((label, index) => <li key={label} aria-current={step === index ? 'step' : undefined} className={index < step ? 'is-complete' : ''}><span>{index + 1}</span>{label}</li>)}
+      <ol className="form-steps" aria-label={t("Create bounty progress")}>
+        {steps.map((label, index) => <li key={label} aria-current={step === index ? 'step' : undefined} className={index < step ? 'is-complete' : ''}><button type="button" disabled={index >= step || submitting} onClick={() => setStep(index)}><span>{index < step ? <Check size={15} aria-hidden="true" /> : index + 1}</span>{t(label)}</button></li>)}
       </ol>
-      <h2 className="wizard-title" ref={stepTitle} tabIndex={-1}>Step {step + 1} · {steps[step]}</h2>
+      <h2 className="wizard-title" ref={stepTitle} tabIndex={-1}>{t("Step")} {step + 1} · {t(steps[step])}</h2>
       <form className="task-form" onSubmit={handleSubmit} noValidate aria-busy={submitting}>
         {Object.keys(fieldErrors).length > 0 || criteriaErrors.some(Boolean) ? (
-          <p className="field__error" role="alert">Review the highlighted fields before continuing.</p>
+          <p className="field__error" role="alert">{t("Review the highlighted fields before continuing.")}</p>
         ) : null}
         <section hidden={step !== 0} className="panel task-form__section">
-          <h2 className="panel__title">Task</h2>
-          <p className="panel__hint">What the developer is expected to deliver.</p>
+          <h2 className="panel__title">{t("Task")}</h2>
+          <p className="panel__hint">{t("What the developer is expected to deliver.")}</p>
 
           <div className="field">
-            <label htmlFor="task-title">Task title</label>
+            <label htmlFor="task-title">{t("Task title")}</label>
             <input
               id="task-title"
               type="text"
@@ -234,17 +237,17 @@ export function CreateBountyPage() {
               onChange={(event) => setTitle(event.target.value)}
               aria-invalid={fieldErrors.title ? true : undefined}
               aria-describedby={fieldErrors.title ? 'task-title-error' : undefined}
-              placeholder="Fix the OAuth redirect loop on session refresh"
+              placeholder={t("Fix the OAuth redirect loop on session refresh")}
             />
             {fieldErrors.title ? (
               <p className="field__error" id="task-title-error">
-                {fieldErrors.title}
+                {t(fieldErrors.title)}
               </p>
             ) : null}
           </div>
 
           <div className="field">
-            <label htmlFor="task-description">Description</label>
+            <label htmlFor="task-description">{t("Description")}</label>
             <textarea
               id="task-description"
               rows={5}
@@ -254,66 +257,64 @@ export function CreateBountyPage() {
               aria-describedby={
                 fieldErrors.description ? 'task-description-error' : undefined
               }
-              placeholder="Explain the problem, the expected behaviour and anything the developer needs to know."
+              placeholder={t("Explain the problem, the expected behaviour and anything the developer needs to know.")}
             />
             {fieldErrors.description ? (
               <p className="field__error" id="task-description-error">
-                {fieldErrors.description}
+                {t(fieldErrors.description)}
               </p>
             ) : null}
           </div>
         </section>
 
         <section hidden={step !== 0} className="panel task-form__section">
-          <h2 className="panel__title">Repository</h2>
-          <p className="panel__hint">Where the pull request will be opened.</p>
+          <h2 className="panel__title">{t("Repository")}</h2>
+          <p className="panel__hint">{t("Where the pull request will be opened.")}</p>
 
           <div className="field-row">
             <div className="field">
-              <label htmlFor="task-repo">GitHub repository</label>
+              <label htmlFor="task-repo">{t("GitHub repository")}</label>
               <input
                 id="task-repo"
                 type="text"
                 value={repository}
                 onChange={(event) => setRepository(event.target.value)}
                 aria-invalid={fieldErrors.repository ? true : undefined}
-                aria-describedby="task-repo-hint"
+                aria-describedby={fieldErrors.repository ? "task-repo-hint task-repo-error" : "task-repo-hint"}
                 placeholder="owner/repository"
               />
-              <p className="field__hint" id="task-repo-hint">
-                Use owner/repository
-              </p>
+              <p className="field__hint" id="task-repo-hint">{t("Use owner/repository")}</p>
               {fieldErrors.repository ? (
-                <p className="field__error">{fieldErrors.repository}</p>
+                <p className="field__error" id="task-repo-error">{t(fieldErrors.repository)}</p>
               ) : null}
             </div>
 
             <div className="field">
-              <label htmlFor="task-branch">Base branch</label>
+              <label htmlFor="task-branch">{t("Base branch")}</label>
               <input
                 id="task-branch"
                 type="text"
                 value={baseBranch}
                 onChange={(event) => setBaseBranch(event.target.value)}
                 aria-invalid={fieldErrors.baseBranch ? true : undefined}
+                aria-describedby={fieldErrors.baseBranch ? "task-branch-error" : undefined}
                 placeholder="main"
               />
               {fieldErrors.baseBranch ? (
-                <p className="field__error">{fieldErrors.baseBranch}</p>
+                <p className="field__error" id="task-branch-error">{t(fieldErrors.baseBranch)}</p>
               ) : null}
             </div>
           </div>
         </section>
 
-        <section hidden={step !== 2} className="panel task-form__section">
-          <h2 className="panel__title">Reward</h2>
-          <p className="panel__hint">
-            Funding happens after you create the draft. A passing GitHub verification triggers the backend payout attempt.
-          </p>
+        <section hidden={step !== 2} className="panel task-form__section reward-configuration">
+          <div>
+          <h2 className="panel__title">{t("Reward")}</h2>
+          <p className="panel__hint">{t("Funding happens after you create the draft. A passing GitHub verification triggers the backend payout attempt.")}</p>
 
           <div className="field-row">
             <div className="field">
-              <label htmlFor="task-reward">Reward (XLM)</label>
+              <label htmlFor="task-reward">{t("Reward (XLM)")}</label>
               <input
                 id="task-reward"
                 type="text"
@@ -321,65 +322,64 @@ export function CreateBountyPage() {
                 value={reward}
                 onChange={(event) => setReward(event.target.value)}
                 aria-invalid={fieldErrors.reward ? true : undefined}
-                aria-describedby="task-reward-hint"
+                aria-describedby={fieldErrors.reward ? "task-reward-hint task-reward-error" : "task-reward-hint"}
                 placeholder="250"
               />
-              <p className="field__hint" id="task-reward-hint">
-                Up to 7 decimal places
-              </p>
+              <p className="field__hint" id="task-reward-hint">{t("Up to 7 decimal places")}</p>
               {fieldErrors.reward ? (
-                <p className="field__error">{fieldErrors.reward}</p>
+                <p className="field__error" id="task-reward-error">{t(fieldErrors.reward)}</p>
               ) : null}
             </div>
 
             <div className="field">
-              <label htmlFor="task-deadline">Deadline</label>
+              <label htmlFor="task-deadline">{t("Deadline")}</label>
               <input
                 id="task-deadline"
                 type="datetime-local"
                 value={deadline}
                 onChange={(event) => setDeadline(event.target.value)}
                 aria-invalid={fieldErrors.deadline ? true : undefined}
+                aria-describedby={fieldErrors.deadline ? "task-deadline-error" : undefined}
               />
               {fieldErrors.deadline ? (
-                <p className="field__error">{fieldErrors.deadline}</p>
+                <p className="field__error" id="task-deadline-error">{t(fieldErrors.deadline)}</p>
               ) : null}
             </div>
           </div>
+          </div>
+          <EscrowCard amount={reward} state="preview" wallet={auth.wallet} />
         </section>
 
         <fieldset hidden={step !== 1} className="panel task-form__section task-form__criteria">
-          <legend className="panel__title">Acceptance criteria</legend>
-          <p className="panel__hint">
-            Define the agreed requirements. MergePay checks GitHub CI results; it does not evaluate each written criterion individually.
-          </p>
+          <legend className="panel__title">{t("Acceptance criteria")}</legend>
+          <p className="panel__hint">{t("Define the agreed requirements. MergePay checks GitHub CI results; it does not evaluate each written criterion individually.")}</p>
 
           {criteria.map((entry, index) => (
             <div className="field" key={index}>
-              <label htmlFor={`task-criterion-${index}`}>
-                Criterion {index + 1}
+              <label htmlFor={`task-criterion-${index}`}>{t("Criterion")} {index + 1}
               </label>
-              <div className="criterion-row">
+              <div className="criterion-row"><span className="criterion-number" aria-hidden="true">{index + 1}</span>
                 <input
                   id={`task-criterion-${index}`}
                   type="text"
                   value={entry}
                   onChange={(event) => updateCriterion(index, event.target.value)}
                   aria-invalid={criteriaErrors[index] ? true : undefined}
-                  placeholder="The regression suite passes on the head commit"
+                  aria-describedby={criteriaErrors[index] ? `criterion-error-${index}` : undefined}
+                  placeholder={t("The regression suite passes on the head commit")}
                 />
                 <button
                   type="button"
                   className="icon-button"
                   onClick={() => removeCriterion(index)}
                   disabled={criteria.length === 1}
-                  aria-label={`Remove criterion ${index + 1}`}
+                  aria-label={t("Remove criterion {number}", { number: index + 1 })}
                 >
                   <Trash2 size={16} aria-hidden="true" />
                 </button>
               </div>
               {criteriaErrors[index] ? (
-                <p className="field__error">{criteriaErrors[index]}</p>
+                <p className="field__error" id={`criterion-error-${index}`}>{t(criteriaErrors[index])}</p>
               ) : null}
             </div>
           ))}
@@ -389,46 +389,42 @@ export function CreateBountyPage() {
             className="button button--secondary task-form__add"
             onClick={addCriterion}
           >
-            <Plus size={16} aria-hidden="true" />
-            Add criterion
-          </button>
+            <Plus size={16} aria-hidden="true" />{t("Add criterion")}</button>
         </fieldset>
 
-        {step === 1 ? <details className="technical-disclosure"><summary>Verification rules · fixed by MergePay</summary><p>Required checks: build, regression-tests, acceptance-tests. The PR must match the repository, base branch, base commit and assigned author, and remain open and non-draft.</p><p>Protected paths: .github/workflows/mergepay-ci.yml, requirements.txt, tests/regression/ and tests/acceptance/. Configure CI in your repository before funding.</p></details> : null}
+        {step === 1 ? <details className="technical-disclosure"><summary>{t("Verification rules · fixed by MergePay")}</summary><p>{t("Required checks: build, regression-tests, acceptance-tests. The PR must match the repository, base branch, base commit and assigned author, and remain open and non-draft.")}</p><p>{t("Protected paths: .github/workflows/mergepay-ci.yml, requirements.txt, tests/regression/ and tests/acceptance/. Configure CI in your repository before funding.")}</p></details> : null}
         {step === 3 ? <section className="panel review-summary">
           <h2>{title}</h2><p className="detail-body">{description}</p>
-          <dl className="detail-list"><div><dt>Repository / base branch</dt><dd>{repository} / {baseBranch}</dd></div><div><dt>Reward · XLM display units</dt><dd>{reward}</dd></div><div><dt>Deadline · your local time</dt><dd>{deadline.replace('T', ' ')}</dd></div></dl>
-          <h3>Acceptance criteria</h3><ol>{criteria.map((entry, index) => <li key={index}>{entry}</li>)}</ol>
-          <p className="panel__hint">Next, confirm funding in Freighter. The bounty becomes public only after MergePay confirms the escrow. Verification eligibility is not payment confirmation.</p>
+          <dl className="detail-list"><div><dt>{t("Repository / base branch")}</dt><dd>{repository} / {baseBranch}</dd></div><div><dt>{t("Reward · XLM display units")}</dt><dd>{reward}</dd></div><div><dt>{t("Deadline · your local time")}</dt><dd>{deadline.replace('T', ' ')}</dd></div></dl>
+          <h3>{t("Acceptance criteria")}</h3><ol>{criteria.map((entry, index) => <li key={index}>{entry}</li>)}</ol>
+          <p className="panel__hint">{t("Next, confirm funding in Freighter. The bounty becomes public only after MergePay confirms the escrow. Verification eligibility is not payment confirmation.")}</p>
         </section> : null}
-        {step === 2 ? <p className="panel__hint">Testnet only. Amounts use 7-decimal XLM display units. The API does not report the escrow token; confirm the deployment uses native XLM before funding.</p> : null}
+        {step === 2 ? <p className="panel__hint">{t("Testnet only. Amounts use 7-decimal XLM display units. The API does not report the escrow token; confirm the deployment uses native XLM before funding.")}</p> : null}
         {submitError ? (
           <p className="task-form__submit-error" role="alert">
             <AlertTriangle size={16} aria-hidden="true" />
-            {submitError}
+            {t(submitError)}
           </p>
         ) : null}
 
+        {step === 3 ? <ol className="funding-path" aria-label={t("Publishing process")}><li>{t("Authenticate")}</li><li>{t("Create draft")}</li><li>{t("Confirm funding")}</li><li>{t("Publish after confirmation")}</li></ol> : null}
         {authenticated || step !== 3 ? null : (
           <AuthPrompt
-            message="Sign in with your Stellar wallet to create and own this task."
-            hint="Your answers stay in the form while you sign in."
+            message={t("Sign in with your Stellar wallet to create and own this task.")}
+            hint={t("Your answers stay in the form while you sign in.")}
           />
         )}
 
         <div className="task-form__footer">
-          {step > 0 ? <button type="button" className="button button--secondary" disabled={submitting} onClick={() => setStep(step - 1)}>Back</button> : null}
+          {step > 0 ? <button type="button" className="button button--secondary" disabled={submitting} onClick={() => setStep(step - 1)}>{t("Back")}</button> : null}
           <button
             type="submit"
             className="button button--primary"
             disabled={submitting || (step === 3 && !authenticated)}
           >
-            {submitting ? 'Creating draft...' : step === 3 ? 'Create draft & continue' : 'Continue'}
+            {submitting ? t("Creating draft...") : step === 3 ? t("Create draft & continue") : t("Continue")}
           </button>
-          <p className="task-form__note">
-            The task is created as a draft, owned by your wallet. Securing the
-            reward on Stellar comes next.
-          </p>
+          <p className="task-form__note">{t("The task is created as a draft, owned by your wallet. Securing the reward on Stellar comes next.")}</p>
         </div>
       </form>
     </div>

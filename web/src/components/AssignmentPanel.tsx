@@ -1,3 +1,4 @@
+import { t, useI18n } from '../i18n'
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import {
@@ -56,6 +57,7 @@ interface AssignmentPanelProps {
 }
 
 export function AssignmentPanel({ bounty, onAssigned }: AssignmentPanelProps) {
+  useI18n()
   const [step, setStep] = useState<Step>('idle')
   const [error, setError] = useState<string | null>(null)
   const [username, setUsername] = useState('')
@@ -206,31 +208,24 @@ export function AssignmentPanel({ bounty, onAssigned }: AssignmentPanelProps) {
       <div className="action-panel__head">
         <Handshake size={18} aria-hidden="true" />
         <div>
-          <h2 className="action-panel__title" id="assignment-title">
-            Ready for a developer
-          </h2>
-          <p>
-            The reward is secured. Accept this task to bind your wallet to the
-            bounty.
-          </p>
+          <h2 className="action-panel__title" id="assignment-title">{t("Ready for a developer")}</h2>
+          <p>{t("The reward is secured. Accept this task to bind your wallet to the bounty.")}</p>
         </div>
       </div>
 
       <dl className="action-panel__facts">
         <div>
-          <dt>Reward</dt>
+          <dt>{t("Reward")}</dt>
           <dd>{formatXlm(bounty.amount_stroops)} XLM</dd>
         </div>
         <div>
-          <dt>Deadline</dt>
+          <dt>{t("Deadline")}</dt>
           <dd>{formatUnixSeconds(bounty.deadline_unix)}</dd>
         </div>
       </dl>
 
       <p className="action-panel__network">
-        <AlertTriangle size={14} aria-hidden="true" />
-        Stellar Testnet — no real funds
-      </p>
+        <AlertTriangle size={14} aria-hidden="true" />{t("Stellar Testnet — no real funds")}</p>
 
       {accessIssue !== null ? (
         <AuthPrompt message={accessIssue.message} hint={accessIssue.hint} />
@@ -262,13 +257,13 @@ export function AssignmentPanel({ bounty, onAssigned }: AssignmentPanelProps) {
       {error !== null ? (
         <p className="action-panel__error" role="alert">
           <AlertTriangle size={16} aria-hidden="true" />
-          {error}
+          {t(error)}
         </p>
       ) : null}
 
       {busy ? (
         <p className="visually-hidden" role="status">
-          {STEP_LABELS[step]}
+          {t(STEP_LABELS[step])}
         </p>
       ) : null}
     </section>
@@ -276,22 +271,22 @@ export function AssignmentPanel({ bounty, onAssigned }: AssignmentPanelProps) {
 }
 
 function BusyLabel({ step }: { step: Step }) {
+  useI18n()
   return (
     <>
       <Loader size={16} aria-hidden="true" />
-      {step === 'idle' ? 'Working...' : STEP_LABELS[step]}
+      {t(step === 'idle' ? 'Working...' : STEP_LABELS[step])}
     </>
   )
 }
 
 function PendingDetails({ pending }: { pending: PendingAssignment }) {
+  useI18n()
   return (
-    <p className="action-panel__hint">
-      GitHub <code>{pending.developerGithub}</code> · Wallet{' '}
+    <p className="action-panel__hint">{t("GitHub")} <code>{pending.developerGithub}</code>{t("· Wallet")}{' '}
       <code title={pending.developerAddress}>
         {abbreviateAddress(pending.developerAddress)}
-      </code>{' '}
-      · Transaction{' '}
+      </code>{' '}{t("· Transaction")}{' '}
       <code title={pending.transactionHash}>{pending.transactionHash}</code>
     </p>
   )
@@ -306,11 +301,10 @@ interface SignedPendingProps {
 
 /** Todo firmado: reintentar solo vuelve a llamar a POST /assigned. */
 function SignedPending({ pending, busy, step, onRetry }: SignedPendingProps) {
+  useI18n()
   return (
     <div className="action-panel__submitted">
-      <p className="action-panel__submitted-text">
-        Assignment transaction already submitted.
-      </p>
+      <p className="action-panel__submitted-text">{t("Assignment transaction already submitted.")}</p>
       <PendingDetails pending={pending} />
       <div className="action-panel__action">
         <button
@@ -323,9 +317,7 @@ function SignedPending({ pending, busy, step, onRetry }: SignedPendingProps) {
             <BusyLabel step={step} />
           ) : (
             <>
-              <RotateCcw size={16} aria-hidden="true" />
-              Retry confirmation
-            </>
+              <RotateCcw size={16} aria-hidden="true" />{t("Retry confirmation")}</>
           )}
         </button>
       </div>
@@ -345,19 +337,17 @@ interface UnsignedPendingProps {
  * solo usa signMessage: no hay otra transaccion.
  */
 function UnsignedPending({ pending, busy, step, onSign }: UnsignedPendingProps) {
+  useI18n()
   const wallet = useWallet()
 
   return (
     <div className="action-panel__submitted">
       <p className="action-panel__submitted-text">
         {step === 'proving'
-          ? 'Confirm wallet ownership in Freighter.'
-          : 'Assignment is on Stellar but wallet ownership still needs confirmation.'}
+          ? t("Confirm wallet ownership in Freighter.")
+          : t("Assignment is on Stellar but wallet ownership still needs confirmation.")}
       </p>
-      <p className="action-panel__hint">
-        Freighter asks for a second signature. It proves you control the
-        wallet that accepted this task and sends no transaction.
-      </p>
+      <p className="action-panel__hint">{t("Freighter asks for a second signature. It proves you control the wallet that accepted this task and sends no transaction.")}</p>
       <PendingDetails pending={pending} />
       <OwnershipAction
         developerAddress={pending.developerAddress}
@@ -379,6 +369,7 @@ interface OwnershipActionProps {
 }
 
 function OwnershipAction({ developerAddress, busy, step, wallet, onSign }: OwnershipActionProps) {
+  useI18n()
   if (busy) {
     return (
       <div className="action-panel__action">
@@ -397,12 +388,8 @@ function OwnershipAction({ developerAddress, busy, step, wallet, onSign }: Owner
           className="button button--secondary"
           onClick={() => void wallet.refresh()}
         >
-          <RotateCcw size={16} aria-hidden="true" />
-          Check for Freighter
-        </button>
-        <span className="action-panel__hint">
-          Install the Freighter browser extension to sign the ownership proof.
-        </span>
+          <RotateCcw size={16} aria-hidden="true" />{t("Check for Freighter")}</button>
+        <span className="action-panel__hint">{t("Install the Freighter browser extension to sign the ownership proof.")}</span>
       </div>
     )
   }
@@ -411,9 +398,7 @@ function OwnershipAction({ developerAddress, busy, step, wallet, onSign }: Owner
     return (
       <div className="action-panel__action">
         <button type="button" className="button button--primary" disabled>
-          <Loader size={16} aria-hidden="true" />
-          Connecting...
-        </button>
+          <Loader size={16} aria-hidden="true" />{t("Connecting...")}</button>
       </div>
     )
   }
@@ -426,12 +411,8 @@ function OwnershipAction({ developerAddress, busy, step, wallet, onSign }: Owner
           className="button button--secondary"
           onClick={() => void wallet.refresh()}
         >
-          <RotateCcw size={16} aria-hidden="true" />
-          Check network again
-        </button>
-        <span className="action-panel__hint action-panel__hint--warning">
-          Switch Freighter to Testnet
-        </span>
+          <RotateCcw size={16} aria-hidden="true" />{t("Check network again")}</button>
+        <span className="action-panel__hint action-panel__hint--warning">{t("Switch Freighter to Testnet")}</span>
       </div>
     )
   }
@@ -444,9 +425,7 @@ function OwnershipAction({ developerAddress, busy, step, wallet, onSign }: Owner
           className="button button--primary"
           onClick={() => void wallet.connect()}
         >
-          <Wallet size={16} aria-hidden="true" />
-          Connect wallet to sign
-        </button>
+          <Wallet size={16} aria-hidden="true" />{t("Connect wallet to sign")}</button>
       </div>
     )
   }
@@ -455,9 +434,7 @@ function OwnershipAction({ developerAddress, busy, step, wallet, onSign }: Owner
   if (wallet.address !== developerAddress) {
     return (
       <div className="action-panel__blocked">
-        <p className="action-panel__blocked-title">
-          Switch to the wallet that accepted this task (
-          {abbreviateAddress(developerAddress)}).
+        <p className="action-panel__blocked-title">{t("Switch to the wallet that accepted this task (")}{abbreviateAddress(developerAddress)}).
         </p>
         <div className="action-panel__action">
           <button
@@ -465,9 +442,7 @@ function OwnershipAction({ developerAddress, busy, step, wallet, onSign }: Owner
             className="button button--secondary"
             onClick={() => void wallet.refresh()}
           >
-            <RotateCcw size={16} aria-hidden="true" />
-            Refresh wallet
-          </button>
+            <RotateCcw size={16} aria-hidden="true" />{t("Refresh wallet")}</button>
         </div>
       </div>
     )
@@ -476,9 +451,7 @@ function OwnershipAction({ developerAddress, busy, step, wallet, onSign }: Owner
   return (
     <div className="action-panel__action">
       <button type="button" className="button button--primary" onClick={onSign}>
-        <KeyRound size={16} aria-hidden="true" />
-        Sign ownership proof
-      </button>
+        <KeyRound size={16} aria-hidden="true" />{t("Sign ownership proof")}</button>
     </div>
   )
 }
@@ -500,17 +473,15 @@ function AcceptAction({
   onUsernameChange,
   onAccept,
 }: AcceptActionProps) {
+  useI18n()
   const wallet = useWallet()
   const configurationProblem = fundingConfigurationProblem()
 
   if (configurationProblem !== null) {
     return (
       <div className="action-panel__action">
-        <button type="button" className="button button--primary" disabled>
-          Accept task
-        </button>
-        <span className="action-panel__hint">
-          Accepting is disabled: {configurationProblem}
+        <button type="button" className="button button--primary" disabled>{t("Accept task")}</button>
+        <span className="action-panel__hint">{t("Accepting is disabled:")} {t(configurationProblem)}
         </span>
       </div>
     )
@@ -524,12 +495,8 @@ function AcceptAction({
           className="button button--secondary"
           onClick={() => void wallet.refresh()}
         >
-          <RotateCcw size={16} aria-hidden="true" />
-          Check for Freighter
-        </button>
-        <span className="action-panel__hint">
-          Install the Freighter browser extension to accept this task.
-        </span>
+          <RotateCcw size={16} aria-hidden="true" />{t("Check for Freighter")}</button>
+        <span className="action-panel__hint">{t("Install the Freighter browser extension to accept this task.")}</span>
       </div>
     )
   }
@@ -538,9 +505,7 @@ function AcceptAction({
     return (
       <div className="action-panel__action">
         <button type="button" className="button button--primary" disabled>
-          <Loader size={16} aria-hidden="true" />
-          Connecting...
-        </button>
+          <Loader size={16} aria-hidden="true" />{t("Connecting...")}</button>
       </div>
     )
   }
@@ -553,12 +518,8 @@ function AcceptAction({
           className="button button--secondary"
           onClick={() => void wallet.refresh()}
         >
-          <RotateCcw size={16} aria-hidden="true" />
-          Check network again
-        </button>
-        <span className="action-panel__hint action-panel__hint--warning">
-          Switch Freighter to Testnet
-        </span>
+          <RotateCcw size={16} aria-hidden="true" />{t("Check network again")}</button>
+        <span className="action-panel__hint action-panel__hint--warning">{t("Switch Freighter to Testnet")}</span>
       </div>
     )
   }
@@ -571,11 +532,9 @@ function AcceptAction({
           className="button button--primary"
           onClick={() => void wallet.connect()}
         >
-          <Wallet size={16} aria-hidden="true" />
-          Connect wallet to accept
-        </button>
+          <Wallet size={16} aria-hidden="true" />{t("Connect wallet to accept")}</button>
         {wallet.status === 'error' && wallet.error !== null ? (
-          <span className="action-panel__hint">{wallet.error}</span>
+          <span className="action-panel__hint">{t(wallet.error)}</span>
         ) : null}
       </div>
     )
@@ -587,21 +546,15 @@ function AcceptAction({
   if (developerAddress === bounty.client_wallet) {
     return (
       <div className="action-panel__blocked">
-        <p className="action-panel__blocked-title">
-          You're connected with the client wallet.
-        </p>
-        <p className="action-panel__hint">
-          Switch to a developer wallet to accept this task.
-        </p>
+        <p className="action-panel__blocked-title">{t("You're connected with the client wallet.")}</p>
+        <p className="action-panel__hint">{t("Switch to a developer wallet to accept this task.")}</p>
         <div className="action-panel__action">
           <button
             type="button"
             className="button button--secondary"
             onClick={() => void wallet.refresh()}
           >
-            <RotateCcw size={16} aria-hidden="true" />
-            Refresh wallet
-          </button>
+            <RotateCcw size={16} aria-hidden="true" />{t("Refresh wallet")}</button>
         </div>
       </div>
     )
@@ -621,7 +574,7 @@ function AcceptAction({
   return (
     <form className="action-panel__form" onSubmit={handleSubmit} noValidate>
       <div className="field">
-        <label htmlFor="developer-github">GitHub username</label>
+        <label htmlFor="developer-github">{t("GitHub username")}</label>
         <input
           id="developer-github"
           type="text"
@@ -633,15 +586,11 @@ function AcceptAction({
           maxLength={39}
           aria-invalid={showUsernameError ? true : undefined}
           aria-describedby="developer-github-hint"
-          placeholder="octocat"
+          placeholder={t("octocat")}
         />
-        <p className="field__hint" id="developer-github-hint">
-          This username must author the pull request that will be verified.
-        </p>
+        <p className="field__hint" id="developer-github-hint">{t("This username must author the pull request that will be verified.")}</p>
         {showUsernameError ? (
-          <p className="field__error">
-            Use 1 to 39 letters, numbers or hyphens.
-          </p>
+          <p className="field__error">{t("Use 1 to 39 letters, numbers or hyphens.")}</p>
         ) : null}
       </div>
 
@@ -655,9 +604,7 @@ function AcceptAction({
             <BusyLabel step={step} />
           ) : (
             <>
-              <UserCheck size={16} aria-hidden="true" />
-              Accept task
-            </>
+              <UserCheck size={16} aria-hidden="true" />{t("Accept task")}</>
           )}
         </button>
         <button
@@ -666,15 +613,10 @@ function AcceptAction({
           onClick={() => void wallet.refresh()}
           disabled={busy}
         >
-          <RotateCcw size={16} aria-hidden="true" />
-          Refresh wallet
-        </button>
+          <RotateCcw size={16} aria-hidden="true" />{t("Refresh wallet")}</button>
       </div>
 
-      <p className="action-panel__hint">
-        Freighter will ask you to sign twice: first the assignment transaction,
-        then a message that proves you own this wallet.
-      </p>
+      <p className="action-panel__hint">{t("Freighter will ask you to sign twice: first the assignment transaction, then a message that proves you own this wallet.")}</p>
     </form>
   )
 }
