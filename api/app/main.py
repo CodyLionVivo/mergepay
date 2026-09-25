@@ -1,5 +1,6 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from app.routers import ai, auth, bounties
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -40,3 +41,8 @@ def read_root() -> dict[str, str]:
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "healthy"}
+
+
+app.include_router(ai.router)
+app.include_router(auth.router)
+app.include_router(bounties.router)
