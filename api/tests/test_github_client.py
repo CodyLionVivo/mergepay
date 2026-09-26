@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import httpx
@@ -415,6 +416,7 @@ CHECK_RUNS_PAYLOAD: list[dict[str, Any]] = [
         "conclusion": None,
         "head_sha": HEAD_SHA,
         "html_url": None,
+        "id": 2,
         "started_at": "2026-03-10T00:00:00Z",
     },
 ]
@@ -427,6 +429,7 @@ def check_run_item(index: int) -> dict[str, Any]:
         "conclusion": "success",
         "head_sha": HEAD_SHA,
         "html_url": None,
+        "id": index + 1,
     }
 
 
@@ -463,14 +466,87 @@ def test_list_check_runs_maps_github_json() -> None:
     assert runs[0].html_url == "https://github.com/acme/demo/runs/1"
     assert runs[1].html_url is None
 
-    # `id`, `output` y demas se descartan.
+    # `output` y demas siguen descartandose; `id` y `started_at` ya no.
     assert set(runs[0].model_dump()) == {
+        "id",
         "name",
         "status",
         "conclusion",
         "head_sha",
         "html_url",
+        "started_at",
     }
+
+
+# ─────────────────────────────────────────
+# id y started_at de un check run.
+# ─────────────────────────────────────────
+
+
+def test_to_check_run_parses_the_id() -> None:
+    with make_client(check_runs_handler(CHECK_RUNS_PAYLOAD)) as client:
+        runs = client.list_check_runs(
+            parse_pull_request_url(PULL_REQUEST_URL), HEAD_SHA
+        )
+
+    assert [run.id for run in runs] == [1, 2]
+
+
+def test_to_check_run_parses_a_timezone_aware_started_at() -> None:
+    with make_client(check_runs_handler(CHECK_RUNS_PAYLOAD)) as client:
+        runs = client.list_check_runs(
+            parse_pull_request_url(PULL_REQUEST_URL), HEAD_SHA
+        )
+
+    started_at = runs[1].started_at
+
+    assert started_at == datetime(2026, 3, 10, tzinfo=timezone.utc)
+    assert started_at is not None and started_at.tzinfo is not None
+    assert started_at.utcoffset() == timedelta(0)
+
+
+def test_to_check_run_keeps_an_offset_started_at_as_the_same_instant() -> None:
+    item = {**CHECK_RUNS_PAYLOAD[0], "started_at": "2026-03-10T02:00:00+02:00"}
+
+    with make_client(check_runs_handler([item])) as client:
+        runs = client.list_check_runs(
+            parse_pull_request_url(PULL_REQUEST_URL), HEAD_SHA
+        )
+
+    assert runs[0].started_at == datetime(2026, 3, 10, tzinfo=timezone.utc)
+
+
+def test_to_check_run_accepts_a_null_started_at() -> None:
+    item = {**CHECK_RUNS_PAYLOAD[0], "started_at": None}
+
+    with make_client(check_runs_handler([item])) as client:
+        runs = client.list_check_runs(
+            parse_pull_request_url(PULL_REQUEST_URL), HEAD_SHA
+        )
+
+    assert runs[0].started_at is None
+
+
+def test_to_check_run_accepts_a_missing_started_at() -> None:
+    # El primer item del payload no trae `started_at` en absoluto.
+    with make_client(check_runs_handler([CHECK_RUNS_PAYLOAD[0]])) as client:
+        runs = client.list_check_runs(
+            parse_pull_request_url(PULL_REQUEST_URL), HEAD_SHA
+        )
+
+    assert runs[0].started_at is None
+
+
+def test_to_check_run_reads_a_naive_started_at_as_utc() -> None:
+    """GitHub manda Z, pero un naive no puede quedar sin zona: no se podria ordenar."""
+    item = {**CHECK_RUNS_PAYLOAD[0], "started_at": "2026-03-10T00:00:00"}
+
+    with make_client(check_runs_handler([item])) as client:
+        runs = client.list_check_runs(
+            parse_pull_request_url(PULL_REQUEST_URL), HEAD_SHA
+        )
+
+    assert runs[0].started_at == datetime(2026, 3, 10, tzinfo=timezone.utc)
 
 
 def test_list_check_runs_uses_the_supplied_head_sha() -> None:

@@ -1,6 +1,6 @@
 import base64
 import binascii
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import StrEnum
 from typing import Annotated
 
@@ -116,11 +116,36 @@ class PullRequestInspection(PullRequestSummary):
 
 
 class GitHubCheckRun(BaseModel):
+    """Un check run del commit, tal como lo devuelve GitHub.
+
+    `id` es lo que permite elegir de forma determinista entre varios runs
+    legitimos con el mismo nombre. `started_at` es metadata: se parsea y se
+    conserva, pero no interviene en esa eleccion.
+    """
+
+    id: int
     name: str
     status: str
     conclusion: str | None
     head_sha: str
     html_url: str | None
+
+    # ISO 8601 en el JSON de GitHub. Falta mientras el run sigue encolado, que
+    # es justamente por lo que no sirve para elegir el run mas reciente.
+    started_at: datetime | None = None
+
+    @field_validator("started_at")
+    @classmethod
+    def _assume_utc(cls, value: datetime | None) -> datetime | None:
+        """Un timestamp naive se interpreta como UTC.
+
+        GitHub manda Z, pero un naive dejaria dos runs sin instante comparable, y
+        esta fecha se muestra y se compara como metadata.
+        """
+        if value is None or value.tzinfo is not None:
+            return value
+
+        return value.replace(tzinfo=timezone.utc)
 
 
 # ─────────────────────────────────────────

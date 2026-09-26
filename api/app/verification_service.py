@@ -24,7 +24,7 @@ from app.github_client import (
     PullRequestNotFoundError,
     PullRequestTooLargeError,
 )
-from app.github_verifier import DuplicateRequiredCheckError, verify_pull_request
+from app.github_verifier import verify_pull_request
 from app.hashing import compute_evidence_hash
 from app.models import Bounty, BountyStatus, Submission, Verification, utcnow
 from app.stellar_client import (
@@ -75,7 +75,7 @@ def get_github_client() -> Generator[GitHubClient, None, None]:
 
 @contextmanager
 def github_errors_as_http() -> Iterator[None]:
-    """Traduce los errores de GitHub y del verifier a respuestas HTTP.
+    """Traduce los errores de la capa de GitHub a respuestas HTTP.
 
     Nunca se propaga el cuerpo de la respuesta de GitHub ni el token: solo
     mensajes nuestros o el texto de nuestras propias excepciones.
@@ -106,11 +106,6 @@ def github_errors_as_http() -> Iterator[None]:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="GitHub verification service unavailable",
-        ) from error
-    except DuplicateRequiredCheckError as error:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Duplicate required GitHub check detected",
         ) from error
 
 

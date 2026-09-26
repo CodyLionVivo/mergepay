@@ -741,20 +741,253 @@ def test_github_failure_during_verify_creates_no_verification(
     assert bounty_status(session_factory, bounty_id) == BountyStatus.SUBMITTED
 
 
-def test_duplicate_required_check_returns_409(
+def duplicated_runs(
+    name: str,
+    older: dict[str, Any],
+    newer: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Los obligatorios en verde, con los de `name` sustituidos por dos runs."""
+    others = [
+        check_run(other) for other in ("build", "regression-tests", "acceptance-tests")
+        if other != name
+    ]
+
+    return others + [older, newer]
+
+
+def test_duplicate_required_checks_no_longer_return_409(
     client: TestClient, session_factory: sessionmaker[Session], github: FakeGitHub
 ) -> None:
     bounty_id = submitted_bounty(client, session_factory)
 
-    github.check_runs = [*passing_check_runs(), check_run("build")]
+    github.check_runs = [*passing_check_runs(), check_run("build", run_id=2)]
 
     response = client.post(f"/bounties/{bounty_id}/verify")
 
-    assert response.status_code == 409
-    assert response.json() == {"detail": "Duplicate required GitHub check detected"}
+    assert response.status_code == 200
+    assert "Duplicate" not in response.text
 
-    assert count(session_factory, Verification) == 0
-    assert bounty_status(session_factory, bounty_id) == BountyStatus.SUBMITTED
+    assert count(session_factory, Verification) == 1
+
+
+def test_duplicate_checks_with_the_newest_passing_verify_pass(
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    github: FakeGitHub,
+    stellar: FakeStellar,
+) -> None:
+    bounty_id = submitted_bounty(client, session_factory)
+
+    github.check_runs = duplicated_runs(
+        "build",
+        check_run(
+            "build",
+            conclusion="failure",
+            run_id=1,
+            started_at="2026-03-10T12:00:00Z",
+        ),
+        check_run("build", run_id=2, started_at="2026-03-10T12:10:00Z"),
+    )
+
+    body = client.post(f"/bounties/{bounty_id}/verify").json()
+
+    assert body["result"]["status"] == VerificationStatus.PASS
+    assert body["result"]["eligible_for_payout"] is True
+
+    build = [check for check in body["result"]["checks"] if check["name"] == "build"]
+
+    assert len(build) == 1
+    assert build[0]["conclusion"] == "success"
+
+    assert bounty_status(session_factory, bounty_id) == BountyStatus.PAID
+
+
+def test_duplicate_checks_with_the_newest_failing_need_changes(
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    github: FakeGitHub,
+    stellar: FakeStellar,
+) -> None:
+    bounty_id = submitted_bounty(client, session_factory)
+
+    github.check_runs = duplicated_runs(
+        "build",
+        check_run("build", run_id=1, started_at="2026-03-10T12:00:00Z"),
+        check_run(
+            "build",
+            conclusion="failure",
+            run_id=2,
+            started_at="2026-03-10T12:10:00Z",
+        ),
+    )
+
+    body = client.post(f"/bounties/{bounty_id}/verify").json()
+
+    assert body["result"]["status"] == VerificationStatus.FAIL
+
+    assert bounty_status(session_factory, bounty_id) == BountyStatus.NEEDS_CHANGES
+
+    # Un FAIL no paga.
+    assert stellar.calls == []
+
+
+def test_duplicate_checks_with_the_newest_in_progress_are_verifying(
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    github: FakeGitHub,
+    stellar: FakeStellar,
+) -> None:
+    bounty_id = submitted_bounty(client, session_factory)
+
+    github.check_runs = duplicated_runs(
+        "build",
+        check_run("build", run_id=1, started_at="2026-03-10T12:00:00Z"),
+        check_run(
+            "build",
+            status="in_progress",
+            conclusion=None,
+            run_id=2,
+            started_at="2026-03-10T12:10:00Z",
+        ),
+    )
+
+    body = client.post(f"/bounties/{bounty_id}/verify").json()
+
+    assert body["result"]["status"] == VerificationStatus.PENDING
+
+    assert bounty_status(session_factory, bounty_id) == BountyStatus.VERIFYING
+
+    assert stellar.calls == []
+
+
+def test_duplicate_checks_release_the_payout_exactly_once(
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    github: FakeGitHub,
+    stellar: FakeStellar,
+) -> None:
+    bounty_id = submitted_bounty(client, session_factory)
+
+    github.check_runs = duplicated_runs(
+        "build",
+        check_run(
+            "build",
+            conclusion="failure",
+            run_id=1,
+            started_at="2026-03-10T12:00:00Z",
+        ),
+        check_run("build", run_id=2, started_at="2026-03-10T12:10:00Z"),
+    )
+
+    client.post(f"/bounties/{bounty_id}/verify")
+
+    assert len(stellar.calls) == 1
+    assert stellar.calls[0][0] == bounty_id
+
+
+def test_duplicate_checks_write_a_single_verification_row(
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    github: FakeGitHub,
+    stellar: FakeStellar,
+) -> None:
+    bounty_id = submitted_bounty(client, session_factory)
+
+    github.check_runs = duplicated_runs(
+        "build",
+        check_run(
+            "build",
+            conclusion="failure",
+            run_id=1,
+            started_at="2026-03-10T12:00:00Z",
+        ),
+        check_run("build", run_id=2, started_at="2026-03-10T12:10:00Z"),
+    )
+
+    client.post(f"/bounties/{bounty_id}/verify")
+
+    with session_factory() as db:
+        verification = db.scalars(select(Verification)).one()
+
+        result = PullRequestVerificationResult.model_validate_json(
+            verification.result_json
+        )
+
+    # Una sola fila, y con el resultado del run seleccionado.
+    assert result.status is VerificationStatus.PASS
+    assert len(result.checks) == 3
+
+
+def test_evidence_hash_uses_the_selected_duplicate_result(
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    github: FakeGitHub,
+    stellar: FakeStellar,
+) -> None:
+    bounty_id = submitted_bounty(client, session_factory)
+
+    github.check_runs = duplicated_runs(
+        "build",
+        check_run(
+            "build",
+            conclusion="failure",
+            run_id=1,
+            started_at="2026-03-10T12:00:00Z",
+        ),
+        check_run("build", run_id=2, started_at="2026-03-10T12:10:00Z"),
+    )
+
+    body = client.post(f"/bounties/{bounty_id}/verify").json()
+
+    result = PullRequestVerificationResult.model_validate(body["result"])
+
+    with session_factory() as db:
+        bounty = db.get(Bounty, bounty_id)
+        assert bounty is not None
+
+        submission = db.scalars(select(Submission)).one()
+
+        expected = compute_evidence_hash(
+            bounty_id=bounty.id,
+            repo_owner=bounty.repo_owner,
+            repo_name=bounty.repo_name,
+            base_branch=bounty.base_branch,
+            base_sha=bounty.base_sha,
+            criteria_hash=bounty.criteria_hash,
+            developer_github=bounty.developer_github,
+            pull_request_number=submission.pull_request_number,
+            pull_request_url=submission.pull_request_url,
+            verification=result,
+        )
+
+    # El hash ancla el resultado del run elegido, no el del descartado.
+    assert stellar.calls[0][1] == expected
+
+
+def test_check_runs_from_another_commit_do_not_count(
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    github: FakeGitHub,
+    stellar: FakeStellar,
+) -> None:
+    bounty_id = submitted_bounty(client, session_factory)
+
+    github.check_runs = [
+        *passing_check_runs(),
+        # Mas nuevo y en rojo, pero de otro commit: no es candidato.
+        check_run(
+            "build",
+            conclusion="failure",
+            run_id=99,
+            started_at="2026-03-10T23:00:00Z",
+            head_sha="w" * 40,
+        ),
+    ]
+
+    body = client.post(f"/bounties/{bounty_id}/verify").json()
+
+    assert body["result"]["status"] == VerificationStatus.PASS
+    assert bounty_status(session_factory, bounty_id) == BountyStatus.PAID
 
 
 def test_too_many_check_runs_returns_422(

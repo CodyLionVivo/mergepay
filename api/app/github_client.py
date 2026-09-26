@@ -295,10 +295,15 @@ def _to_file(item: dict[str, Any]) -> PullRequestFile:
 
 
 def _to_check_run(item: dict[str, Any]) -> GitHubCheckRun:
+    # `started_at` puede no venir en un run recien encolado; el schema lo acepta
+    # como None y lo guarda solo como metadata. `id` siempre lo trae GitHub y es
+    # el selector cuando un required check aparece varias veces.
     return GitHubCheckRun(
+        id=item.get("id"),
         name=item.get("name"),
         status=item.get("status"),
         conclusion=item.get("conclusion"),
         head_sha=item.get("head_sha"),
         html_url=item.get("html_url"),
+        started_at=item.get("started_at"),
     )

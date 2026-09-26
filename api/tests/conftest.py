@@ -69,13 +69,22 @@ def check_run(
     status: str = "completed",
     conclusion: str | None = "success",
     head_sha: str = HEAD_SHA,
+    run_id: int = 1,
+    started_at: str | None = None,
 ) -> dict[str, Any]:
+    """Un check run como lo devuelve GitHub.
+
+    `run_id` y `started_at` son lo que desempata entre varios runs del mismo
+    nombre; los tests que no dependan de eso pueden ignorarlos.
+    """
     return {
         "name": name,
         "status": status,
         "conclusion": conclusion,
         "head_sha": head_sha,
         "html_url": None,
+        "id": run_id,
+        "started_at": started_at,
     }
 
 

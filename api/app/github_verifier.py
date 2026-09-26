@@ -2,8 +2,9 @@
 
 Esta capa no habla con GitHub ni con la base de datos: recibe lo que
 `GitHubClient` ya trajo y lo evalua. Dadas las mismas entradas siempre produce
-el mismo resultado, por eso un nombre de check duplicado es un error en vez de
-una eleccion arbitraria.
+el mismo resultado. Un nombre de check duplicado no es un error: GitHub puede
+devolver varios runs legitimos con el mismo nombre, y de ellos se elige uno con
+una regla fija -- el check-run id mas alto --, nunca el orden en que llegaron.
 """
 
 from collections.abc import Iterable, Sequence
@@ -40,8 +41,26 @@ COMPLETED_STATUS = "completed"
 SUCCESS_CONCLUSION = "success"
 
 
-class DuplicateRequiredCheckError(Exception):
-    """Dos check runs comparten el nombre de un check obligatorio."""
+def select_latest_check_run(
+    name: str, check_runs: Iterable[GitHubCheckRun]
+) -> GitHubCheckRun | None:
+    """El check run con ese nombre exacto y el id mas alto, o None si no hay.
+
+    Varios runs con el mismo nombre son legitimos: dos check suites, un workflow
+    re-ejecutado, una app reinstalada. Se elige exactamente uno, y siempre el
+    mismo para la misma entrada, sea cual sea el orden en que GitHub la devuelva.
+
+    El selector es el `id` del check run, no `started_at`: un run recien creado
+    sigue en `queued` y todavia no tiene `started_at`, asi que ordenar por fecha
+    elegiria al viejo ya completado y pagaria un commit cuyos checks aun no han
+    corrido. `completed_at` tiene el mismo problema, y peor. El id de GitHub
+    crece con cada check run, de modo que el mayor es el ultimo creado.
+
+    `started_at` se sigue leyendo y guardando como metadata, pero no decide.
+    """
+    matches = [run for run in check_runs if run.name == name]
+
+    return max(matches, key=lambda run: run.id) if matches else None
 
 
 def is_protected_path(path: str) -> bool:
@@ -69,15 +88,14 @@ def find_protected_files(files: Iterable[PullRequestFile]) -> list[str]:
 def _evaluate_check(
     name: str, check_runs: Sequence[GitHubCheckRun]
 ) -> tuple[RequiredCheckResult, str | None]:
-    """Resultado de un check obligatorio y, si procede, su motivo de queja."""
-    matches = [run for run in check_runs if run.name == name]
+    """Resultado de un check obligatorio y, si procede, su motivo de queja.
 
-    if len(matches) > 1:
-        raise DuplicateRequiredCheckError(
-            f"Required check '{name}' appears {len(matches)} times"
-        )
+    Con varios runs del mismo nombre se evalua solo el seleccionado: el resto no
+    influye ni en el status ni en la elegibilidad.
+    """
+    run = select_latest_check_run(name, check_runs)
 
-    if not matches:
+    if run is None:
         return (
             RequiredCheckResult(
                 name=name,
@@ -87,8 +105,6 @@ def _evaluate_check(
             ),
             f"Required check '{name}' is missing",
         )
-
-    run = matches[0]
 
     if run.status != COMPLETED_STATUS:
         return (
@@ -185,10 +201,18 @@ def verify_pull_request(
         )
     )
 
+    # Los required checks solo se evaluan sobre el commit inspeccionado. El
+    # endpoint ya se consulta por ese SHA; filtrar aqui lo vuelve explicito, de
+    # modo que un run de otro commit no puede decidir la elegibilidad. No es un
+    # error: simplemente no es candidato.
+    head_check_runs = [
+        run for run in check_runs if run.head_sha == inspection.head_sha
+    ]
+
     checks: list[RequiredCheckResult] = []
 
     for name in REQUIRED_CHECKS:
-        result, reason = _evaluate_check(name, check_runs)
+        result, reason = _evaluate_check(name, head_check_runs)
 
         checks.append(result)
 

@@ -1,12 +1,13 @@
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import pytest
 
 from app.github_verifier import (
     REQUIRED_CHECKS,
-    DuplicateRequiredCheckError,
     find_protected_files,
     is_protected_path,
+    select_latest_check_run,
     verify_pull_request,
 )
 from app.schemas import (
@@ -63,16 +64,40 @@ def make_inspection(**overrides: Any) -> PullRequestInspection:
     return PullRequestInspection(**fields)
 
 
+STARTED_AT = datetime(2026, 3, 10, 12, 0, tzinfo=timezone.utc)
+
+
 def make_check(
-    name: str, status: str = "completed", conclusion: str | None = "success"
+    name: str,
+    status: str = "completed",
+    conclusion: str | None = "success",
+    run_id: int = 1,
+    started_at: datetime | None = None,
+    head_sha: str = HEAD_SHA,
 ) -> GitHubCheckRun:
     return GitHubCheckRun(
+        id=run_id,
         name=name,
         status=status,
         conclusion=conclusion,
-        head_sha=HEAD_SHA,
+        head_sha=head_sha,
         html_url=None,
+        started_at=started_at,
     )
+
+
+def minutes(offset: int) -> datetime:
+    """`STARTED_AT` desplazado, para escribir "mas nuevo" sin fechas literales."""
+    return STARTED_AT + timedelta(minutes=offset)
+
+
+def check_result(result: PullRequestVerificationResult, name: str) -> Any:
+    """El RequiredCheckResult de ese nombre. Falla si no hay exactamente uno."""
+    matches = [check for check in result.checks if check.name == name]
+
+    assert len(matches) == 1, f"expected one entry for {name}, got {len(matches)}"
+
+    return matches[0]
 
 
 def passing_checks() -> list[GitHubCheckRun]:
@@ -402,27 +427,337 @@ def test_structural_failure_takes_precedence_over_pending() -> None:
 
 
 # ─────────────────────────────────────────
-# 31. Nombres duplicados.
+# 31. Nombres duplicados: se elige por check-run id.
 # ─────────────────────────────────────────
 
 
-def test_duplicate_required_check_name_raises() -> None:
-    checks = [
-        *passing_checks(),
-        make_check("acceptance-tests", conclusion="failure"),
+def checks_with(name: str, *runs: GitHubCheckRun) -> list[GitHubCheckRun]:
+    """Los obligatorios en PASS, con los de `name` sustituidos por `runs`."""
+    others = [make_check(other) for other in REQUIRED_CHECKS if other != name]
+
+    return others + list(runs)
+
+
+# A. Lo que motiva usar el id: un run nuevo sin `started_at` tiene que ganar.
+@pytest.mark.parametrize(
+    "status", ["queued", "requested", "waiting", "pending", "in_progress"]
+)
+def test_a_newer_unstarted_run_wins_over_an_older_completed_one(status: str) -> None:
+    """Un run recien creado no tiene `started_at`, y aun asi es el vigente.
+
+    Ordenar por fecha elegiria el viejo completado y daria PASS a un commit cuyos
+    checks todavia no han corrido.
+    """
+    older = make_check("build", run_id=100, started_at=minutes(0))
+    newer = make_check(
+        "build", status=status, conclusion=None, run_id=200, started_at=None
+    )
+
+    result = verify(check_runs=checks_with("build", older, newer))
+
+    build = check_result(result, "build")
+
+    assert build.status == status
+    assert build.conclusion is None
+    assert build.passed is False
+    assert result.status is VerificationStatus.PENDING
+    assert result.eligible_for_payout is False
+    assert "Required check 'build' is still running" in result.reasons
+
+
+# B. Mismo caso con `started_at` informado en ambos.
+def test_newer_in_progress_over_older_success_is_pending() -> None:
+    older = make_check("build", run_id=100, started_at=minutes(0))
+    newer = make_check(
+        "build",
+        status="in_progress",
+        conclusion=None,
+        run_id=200,
+        started_at=minutes(5),
+    )
+
+    result = verify(check_runs=checks_with("build", older, newer))
+
+    assert check_result(result, "build").status == "in_progress"
+    assert result.status is VerificationStatus.PENDING
+
+
+# C. El run vigente decide, aunque el descartado hubiera fallado.
+def test_newer_success_over_older_failure_passes() -> None:
+    older = make_check("build", conclusion="failure", run_id=100, started_at=minutes(0))
+    newer = make_check("build", run_id=200, started_at=minutes(5))
+
+    result = verify(check_runs=checks_with("build", older, newer))
+
+    build = check_result(result, "build")
+
+    assert build.passed is True
+    assert build.conclusion == "success"
+    assert result.status is VerificationStatus.PASS
+    assert result.eligible_for_payout is True
+
+
+# D. Y tampoco se hereda un success viejo.
+def test_newer_failure_over_older_success_fails() -> None:
+    older = make_check("build", run_id=100, started_at=minutes(0))
+    newer = make_check("build", conclusion="failure", run_id=200, started_at=minutes(5))
+
+    result = verify(check_runs=checks_with("build", older, newer))
+
+    build = check_result(result, "build")
+
+    assert build.passed is False
+    assert build.conclusion == "failure"
+    assert result.status is VerificationStatus.FAIL
+    assert result.eligible_for_payout is False
+    assert "Required check 'build' failed with conclusion 'failure'" in result.reasons
+
+
+# E. Sin ningun `started_at`, el id sigue resolviendolo.
+def test_with_no_started_at_at_all_the_highest_id_wins() -> None:
+    lower = make_check("build", conclusion="failure", run_id=100, started_at=None)
+    higher = make_check("build", run_id=200, started_at=None)
+
+    result = verify(check_runs=checks_with("build", lower, higher))
+
+    assert check_result(result, "build").conclusion == "success"
+    assert result.status is VerificationStatus.PASS
+
+
+# F. Un `started_at` incoherente no puede darle la vuelta al id.
+def test_a_later_started_at_on_the_lower_id_does_not_win() -> None:
+    """Fechas raras no mandan: el selector es el id, no el reloj."""
+    lower = make_check(
+        "build", conclusion="failure", run_id=100, started_at=minutes(600)
+    )
+    higher = make_check("build", run_id=200, started_at=minutes(0))
+
+    result = verify(check_runs=checks_with("build", lower, higher))
+
+    assert check_result(result, "build").conclusion == "success"
+    assert result.status is VerificationStatus.PASS
+
+
+def test_started_at_never_changes_the_selection() -> None:
+    """El mismo par de ids da el mismo resultado con cualquier `started_at`."""
+    timestamps = [
+        (None, None),
+        (minutes(0), minutes(5)),
+        (minutes(5), minutes(0)),
+        (None, minutes(5)),
+        (minutes(5), None),
     ]
 
-    with pytest.raises(DuplicateRequiredCheckError):
-        verify(check_runs=checks)
+    results = []
+
+    for older_at, newer_at in timestamps:
+        older = make_check(
+            "build", conclusion="failure", run_id=100, started_at=older_at
+        )
+        newer = make_check("build", run_id=200, started_at=newer_at)
+
+        results.append(verify(check_runs=checks_with("build", older, newer)))
+
+    for result in results:
+        assert check_result(result, "build").conclusion == "success"
+        assert result.model_dump() == results[0].model_dump()
+
+
+def test_three_duplicates_choose_the_highest_id() -> None:
+    runs = [
+        make_check("build", conclusion="failure", run_id=100, started_at=minutes(0)),
+        make_check("build", conclusion="cancelled", run_id=300, started_at=None),
+        make_check("build", conclusion="failure", run_id=200, started_at=minutes(20)),
+    ]
+
+    result = verify(check_runs=checks_with("build", *runs))
+
+    build = check_result(result, "build")
+
+    assert build.conclusion == "cancelled"
+    assert result.status is VerificationStatus.FAIL
 
 
 def test_duplicate_non_required_check_name_is_allowed() -> None:
     checks = [
         *passing_checks(),
-        make_check("lint"),
-        make_check("lint", conclusion="failure"),
+        make_check("lint", run_id=1),
+        make_check("lint", conclusion="failure", run_id=2),
     ]
 
     result = verify(check_runs=checks)
 
     assert result.status is VerificationStatus.PASS
+    assert [check.name for check in result.checks] == list(REQUIRED_CHECKS)
+
+
+def test_a_newer_duplicate_cannot_change_the_structural_rules() -> None:
+    """Los duplicados solo tocan los required checks, nada mas."""
+    runs = [
+        make_check("build", conclusion="failure", run_id=100),
+        make_check("build", run_id=200),
+    ]
+
+    result = verify(check_runs=checks_with("build", *runs))
+
+    assert result.repository_valid is True
+    assert result.base_branch_valid is True
+    assert result.base_sha_valid is True
+    assert result.developer_valid is True
+    assert result.pr_open is True
+    assert result.pr_not_draft is True
+    assert result.protected_files_valid is True
+    assert result.protected_files_modified == []
+
+
+# ─────────────────────────────────────────
+# 32. Solo cuentan los runs del head commit inspeccionado.
+# ─────────────────────────────────────────
+
+
+OTHER_HEAD_SHA = "z" * 40
+
+
+def test_required_check_on_another_head_sha_is_ignored() -> None:
+    stale = make_check(
+        "build",
+        conclusion="failure",
+        run_id=999,
+        started_at=minutes(60),
+        head_sha=OTHER_HEAD_SHA,
+    )
+    current = make_check("build", run_id=1, started_at=minutes(0))
+
+    result = verify(check_runs=checks_with("build", stale, current))
+
+    # El run de otro commit tiene el id mas alto y habria fallado: se descarta
+    # antes de seleccionar, asi que no es candidato.
+    assert check_result(result, "build").conclusion == "success"
+    assert result.status is VerificationStatus.PASS
+
+
+def test_only_wrong_head_duplicates_leave_the_check_missing() -> None:
+    runs = [
+        make_check("build", run_id=100, head_sha=OTHER_HEAD_SHA),
+        make_check("build", run_id=200, head_sha=OTHER_HEAD_SHA),
+    ]
+
+    result = verify(check_runs=checks_with("build", *runs))
+
+    build = check_result(result, "build")
+
+    assert build.status == "missing"
+    assert build.conclusion is None
+    assert build.passed is False
+    assert result.status is VerificationStatus.PENDING
+    assert "Required check 'build' is missing" in result.reasons
+
+
+# ─────────────────────────────────────────
+# 33. Forma y orden del resultado.
+# ─────────────────────────────────────────
+
+
+def test_result_holds_exactly_one_entry_per_required_check() -> None:
+    checks = [
+        *passing_checks(),
+        make_check("build", run_id=200),
+        make_check("regression-tests", run_id=300),
+        make_check("acceptance-tests", run_id=400),
+        make_check("lint", run_id=500),
+    ]
+
+    result = verify(check_runs=checks)
+
+    assert len(result.checks) == len(REQUIRED_CHECKS)
+    assert [check.name for check in result.checks] == [
+        "build",
+        "regression-tests",
+        "acceptance-tests",
+    ]
+
+
+def test_required_check_order_is_fixed_regardless_of_input_order() -> None:
+    checks = list(reversed(passing_checks()))
+
+    result = verify(check_runs=checks)
+
+    assert [check.name for check in result.checks] == [
+        "build",
+        "regression-tests",
+        "acceptance-tests",
+    ]
+
+
+# ─────────────────────────────────────────
+# 34. Determinismo: el orden de entrada no influye.
+# ─────────────────────────────────────────
+
+
+def duplicated_check_runs() -> list[GitHubCheckRun]:
+    """Los tres obligatorios duplicados, cada par con una forma distinta.
+
+    Los `started_at` estan puestos a proposito en contra del id, para que un
+    resultado correcto solo pueda venir de ordenar por id.
+    """
+    return [
+        # Fechas coherentes con el id.
+        make_check("build", conclusion="failure", run_id=100, started_at=minutes(0)),
+        make_check("build", run_id=200, started_at=minutes(10)),
+        # Sin fechas en ninguno.
+        make_check("regression-tests", conclusion="failure", run_id=300),
+        make_check("regression-tests", run_id=400),
+        # El id alto es el que no tiene fecha: el caso queued.
+        make_check(
+            "acceptance-tests", conclusion="failure", run_id=500, started_at=minutes(7)
+        ),
+        make_check("acceptance-tests", run_id=600, started_at=None),
+        make_check("lint", conclusion="failure", run_id=700),
+    ]
+
+
+def test_selection_does_not_depend_on_input_order() -> None:
+    runs = duplicated_check_runs()
+
+    expected = {"build": 200, "regression-tests": 400, "acceptance-tests": 600}
+
+    for name in REQUIRED_CHECKS:
+        forward = select_latest_check_run(name, runs)
+        backward = select_latest_check_run(name, list(reversed(runs)))
+
+        assert forward is not None
+        assert backward is not None
+        assert forward.id == backward.id == expected[name]
+
+
+@pytest.mark.parametrize(
+    "reorder",
+    [
+        lambda runs: runs,
+        lambda runs: list(reversed(runs)),
+        lambda runs: runs[3:] + runs[:3],
+        lambda runs: sorted(runs, key=lambda run: run.id, reverse=True),
+        lambda runs: sorted(runs, key=lambda run: run.name),
+    ],
+)
+def test_result_is_identical_for_any_input_order(reorder: Any) -> None:
+    baseline = verify(check_runs=duplicated_check_runs())
+
+    reordered = verify(check_runs=reorder(duplicated_check_runs()))
+
+    assert reordered.model_dump() == baseline.model_dump()
+    assert baseline.status is VerificationStatus.PASS
+
+
+def test_the_selected_run_is_the_one_reported() -> None:
+    runs = duplicated_check_runs()
+
+    result = verify(check_runs=runs)
+
+    for name in REQUIRED_CHECKS:
+        selected = select_latest_check_run(name, runs)
+        reported = check_result(result, name)
+
+        assert selected is not None
+        assert reported.status == selected.status
+        assert reported.conclusion == selected.conclusion
