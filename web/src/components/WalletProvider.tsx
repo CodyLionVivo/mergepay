@@ -112,6 +112,15 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const disconnect = useCallback(() => {
+    // Invalida cualquier refresh o conexión pendiente.
+    ++latestRequest.current
+
+    // Desconecta la wallet únicamente dentro de MergePay.
+    setWallet(snapshot('disconnected'))
+    setInitializing(false)
+  }, [])
+
   // Al montar solo se lee: nunca se abre el popup sin un clic del usuario.
   useEffect(() => {
     const request = ++latestRequest.current
@@ -125,8 +134,14 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const value = useMemo<WalletContextValue>(
-    () => ({ ...wallet, initializing, connect, refresh }),
-    [wallet, initializing, connect, refresh],
+    () => ({
+      ...wallet,
+      initializing,
+      connect,
+      refresh,
+      disconnect,
+    }),
+    [wallet, initializing, connect, refresh, disconnect],
   )
 
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>

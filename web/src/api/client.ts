@@ -321,3 +321,23 @@ export function getAuthMe(signal?: AbortSignal): Promise<AuthMe> {
 export async function logoutAuth(): Promise<void> {
   await send('/auth/logout', { method: 'POST' })
 }
+
+export interface GenerateCriteriaResponse {
+  criteria: string[]
+}
+
+export function generateCriteria(
+  title: string,
+  description: string,
+): Promise<GenerateCriteriaResponse> {
+  return request<GenerateCriteriaResponse>('/ai/generate-criteria', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      title,
+      description,
+    }),
+  })
+}

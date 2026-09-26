@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     stellar_contract_id: str | None = None
     stellar_verifier_secret: str | None = None
 
+    google_api_key: str | None = None
+    gemini_model: str = "gemini-3.5-flash-lite"
+
     @property
     def cors_origins(self) -> list[str]:
         """La lista limpia: sin espacios, sin vacios y sin repetidos.

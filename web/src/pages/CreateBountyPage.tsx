@@ -2,7 +2,7 @@ import { t, useI18n } from '../i18n'
 import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, Check, Plus, Trash2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { ApiError, createBounty } from '../api/client'
+import { ApiError, createBounty, generateCriteria } from '../api/client'
 import { useAuth } from '../auth/authContext'
 import { AuthPrompt } from '../components/AuthPrompt'
 import { EscrowCard } from '../components/EscrowCard'
@@ -55,6 +55,42 @@ export function CreateBountyPage() {
   const authenticated = auth.status === 'authenticated'
 
   const [submitting, setSubmitting] = useState(false)
+  const [generatingCriteria, setGeneratingCriteria] = useState(false)
+  const [criteriaGenerationError, setCriteriaGenerationError] = useState('')
+
+
+  async function handleGenerateCriteria() {
+    const trimmedTitle = title.trim()
+    const trimmedDescription = description.trim()
+
+    if (!trimmedTitle || !trimmedDescription) {
+      setCriteriaGenerationError(
+        'Debes completar el título y la descripción antes de generar criterios.',
+      )
+      return
+    }
+
+    setGeneratingCriteria(true)
+    setCriteriaGenerationError('')
+
+    try {
+      const response = await generateCriteria(
+        trimmedTitle,
+        trimmedDescription,
+      )
+
+      setCriteria(response.criteria)
+      setCriteriaErrors(response.criteria.map(() => ''))
+    } catch (error: unknown) {
+      setCriteriaGenerationError(
+        error instanceof ApiError
+          ? error.message
+          : 'No se pudieron generar los criterios.',
+      )
+    } finally {
+      setGeneratingCriteria(false)
+    }
+  }  
 
   function updateCriterion(index: number, value: string) {
     setCriteria((current) =>
@@ -353,7 +389,26 @@ export function CreateBountyPage() {
         <fieldset hidden={step !== 1} className="panel task-form__section task-form__criteria">
           <legend className="panel__title">{t("Acceptance criteria")}</legend>
           <p className="panel__hint">{t("Define the agreed requirements. MergePay checks GitHub CI results; it does not evaluate each written criterion individually.")}</p>
+          {criteriaGenerationError ? (
+            <p className="field__error" role="alert">
+              {t(criteriaGenerationError)}
+            </p>
+          ) : null}
 
+          <button
+            type="button"
+            className="button button--secondary"
+            onClick={handleGenerateCriteria}
+            disabled={
+              generatingCriteria ||
+              title.trim() === '' ||
+              description.trim() === ''
+            }
+          >
+            {generatingCriteria
+              ? t('Generating criteria...')
+              : t('Generate criteria with Gemini')}
+          </button>
           {criteria.map((entry, index) => (
             <div className="field" key={index}>
               <label htmlFor={`task-criterion-${index}`}>{t("Criterion")} {index + 1}

@@ -371,3 +371,12 @@ class AuthSessionResponse(BaseModel):
 class AuthMeResponse(BaseModel):
     wallet: str
     expires_at_unix: int
+
+
+class GenerateCriteriaRequest(BaseModel):
+    title: NonEmptyStr = Field(max_length=200)
+    description: NonEmptyStr = Field(max_length=5000)
+
+
+class GenerateCriteriaResponse(BaseModel):
+    criteria: list[NonEmptyStr] = Field(min_length=3, max_length=5)
